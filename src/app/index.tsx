@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,8 +18,6 @@ import {
 import {
   Brand,
   FontFamily,
-  FontSize,
-  Layout,
   Radius,
   Spacing,
   Surfaces,
@@ -61,9 +60,7 @@ export default function LoginScreen() {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  const formComplete =
-    looksLikeEmail(normalizedEmail) &&
-    password.length > 0;
+  const formComplete = looksLikeEmail(normalizedEmail) && password.length > 0;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -71,9 +68,7 @@ export default function LoginScreen() {
     }
 
     try {
-      const savedEmail = window.localStorage.getItem(
-        'tradeshub_remembered_email'
-      );
+      const savedEmail = window.localStorage.getItem('tradeshub_remembered_email');
 
       if (savedEmail) {
         setEmail(savedEmail);
@@ -84,13 +79,8 @@ export default function LoginScreen() {
     }
   }, []);
 
-  async function syncSignupRoles(
-    userId: string,
-    metadata: SignupMetadata
-  ) {
-    const metadataRoles: TradesHubRole[] = Array.isArray(
-      metadata?.selected_roles
-    )
+  async function syncSignupRoles(userId: string, metadata: SignupMetadata) {
+    const metadataRoles: TradesHubRole[] = Array.isArray(metadata?.selected_roles)
       ? metadata.selected_roles.filter(
           (role: unknown): role is TradesHubRole =>
             VALID_ROLES.includes(role as TradesHubRole)
@@ -101,17 +91,14 @@ export default function LoginScreen() {
       return;
     }
 
-    const metadataPrimary = VALID_ROLES.includes(
-      metadata?.primary_role as TradesHubRole
-    )
+    const metadataPrimary = VALID_ROLES.includes(metadata?.primary_role as TradesHubRole)
       ? (metadata.primary_role as TradesHubRole)
       : metadataRoles[0];
 
-    const { data: existingRoles, error: existingError } =
-      await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+    const { data: existingRoles, error: existingError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
 
     if (existingError) {
       throw existingError;
@@ -127,9 +114,7 @@ export default function LoginScreen() {
       is_primary: role === metadataPrimary,
     }));
 
-    const { error: insertError } = await supabase
-      .from('user_roles')
-      .insert(rows);
+    const { error: insertError } = await supabase.from('user_roles').insert(rows);
 
     if (insertError) {
       throw insertError;
@@ -143,14 +128,9 @@ export default function LoginScreen() {
 
     try {
       if (rememberMe) {
-        window.localStorage.setItem(
-          'tradeshub_remembered_email',
-          normalizedEmail
-        );
+        window.localStorage.setItem('tradeshub_remembered_email', normalizedEmail);
       } else {
-        window.localStorage.removeItem(
-          'tradeshub_remembered_email'
-        );
+        window.localStorage.removeItem('tradeshub_remembered_email');
       }
     } catch (error) {
       console.warn('Could not update remembered email:', error);
@@ -164,10 +144,7 @@ export default function LoginScreen() {
 
     try {
       Object.keys(window.localStorage).forEach((key) => {
-        if (
-          key.startsWith('sb-') &&
-          key.includes('auth-token')
-        ) {
+        if (key.startsWith('sb-') && key.includes('auth-token')) {
           window.localStorage.removeItem(key);
         }
       });
@@ -197,25 +174,20 @@ export default function LoginScreen() {
           ? `${window.location.origin}/reset-password`
           : undefined;
 
-      const { error } =
-        await supabase.auth.resetPasswordForEmail(
-          normalizedEmail,
-          redirectTo ? { redirectTo } : undefined
-        );
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        redirectTo ? { redirectTo } : undefined
+      );
 
       if (error) {
         setMessage(error.message);
         return;
       }
 
-      setMessage(
-        'Password reset email sent. Check your inbox for the reset link.'
-      );
+      setMessage('Password reset email sent. Check your inbox for the reset link.');
     } catch (error) {
       console.error('Forgot password error:', error);
-      setMessage(
-        'Could not send the reset email. Please try again.'
-      );
+      setMessage('Could not send the reset email. Please try again.');
     } finally {
       setResetLoading(false);
     }
@@ -237,11 +209,10 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
       if (error) {
         setMessage(error.message);
@@ -256,10 +227,7 @@ export default function LoginScreen() {
 
       if (data.user) {
         try {
-          await syncSignupRoles(
-            data.user.id,
-            data.user.user_metadata as SignupMetadata
-          );
+          await syncSignupRoles(data.user.id, data.user.user_metadata as SignupMetadata);
         } catch (roleError) {
           console.error('Role sync error:', roleError);
           setMessage(
@@ -283,253 +251,287 @@ export default function LoginScreen() {
       style={styles.page}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.backdropGlowOne} />
-      <View style={styles.backdropGlowTwo} />
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <ImageBackground
+        source={require('../../assets/images/trades-hub-login-welding.jpg')}
+        style={styles.pageBackground}
+        imageStyle={styles.pageBackgroundImage}
+        resizeMode="cover"
       >
-        <View style={styles.shell}>
-          <View style={styles.brandSide}>
-            <Image
-              source={require('../../assets/images/trades-hub-logo.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+        <View style={styles.pageOverlay} />
+        <View style={styles.leftShade} />
+        <View style={styles.rightShade} />
 
-            <Text style={styles.eyebrow}>
-              THE COMPLETE TRADE ECOSYSTEM
-            </Text>
-
-            <Text style={styles.heroTitle}>
-              Built for the trades.
-            </Text>
-
-            <Text style={styles.heroSubtitle}>
-              One account for your career, hiring, tools and projects.
-            </Text>
-
-            <View style={styles.brandRule} />
-
-            <View style={styles.brandPoint}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={18}
-                color={Brand.gold500}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.shell}>
+            <View style={styles.brandSide}>
+              <Image
+                source={require('../../assets/images/trades-hub-logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
               />
-              <Text style={styles.brandPointText}>
-                Career records, jobs, businesses and tools in one platform.
+
+              <View style={styles.goldRule} />
+
+              <Text style={styles.heroEyebrow}>
+                THE SKILLED TRADES. ONE PLATFORM.
               </Text>
-            </View>
-          </View>
 
-          <View style={styles.formCard}>
-            <View style={styles.formHeader}>
-              <Text style={styles.formEyebrow}>
-                WELCOME BACK
+              <Text style={styles.heroTitle}>
+                Built for the trades.
               </Text>
-              <Text style={styles.formTitle}>
-                Sign in to Trades Hub
+
+              <Text style={styles.heroSubtitle}>
+                Track your career. Find work. Hire skilled people.
+                Discover tools and opportunities.
               </Text>
-              <Text style={styles.formSubtitle}>
-                Use the account you created for your Trades Hub roles.
-              </Text>
-            </View>
 
-            <Text style={styles.inputLabel}>Email</Text>
-            <View style={styles.inputShell}>
-              <Ionicons
-                name="mail-outline"
-                size={18}
-                color={Brand.textMuted}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={Brand.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={(value) => {
-                  setEmail(value);
-                  if (message) setMessage('');
-                }}
-                autoComplete="email"
-                textContentType="username"
-                importantForAutofill="yes"
-              />
-            </View>
-
-            <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputShell}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={18}
-                color={Brand.textMuted}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor={Brand.textMuted}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (message) setMessage('');
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="current-password"
-                textContentType="password"
-                importantForAutofill="yes"
-                onSubmitEditing={handleSignIn}
-              />
-
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() =>
-                  setShowPassword((current) => !current)
-                }
-              >
-                <Ionicons
-                  name={
-                    showPassword
-                      ? 'eye-off-outline'
-                      : 'eye-outline'
-                  }
-                  size={20}
-                  color={Brand.gold500}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.loginOptionsRow}>
-              <TouchableOpacity
-                style={styles.rememberRow}
-                onPress={() =>
-                  setRememberMe((current) => !current)
-                }
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    rememberMe && styles.checkboxChecked,
-                  ]}
-                >
-                  {rememberMe ? (
-                    <Ionicons
-                      name="checkmark"
-                      size={14}
-                      color={Brand.navy900}
-                    />
-                  ) : null}
+              <View style={styles.featurePills}>
+                <View style={styles.featurePill}>
+                  <Ionicons
+                    name="construct-outline"
+                    size={15}
+                    color={Brand.gold500}
+                  />
+                  <Text style={styles.featurePillText}>CAREER</Text>
                 </View>
 
-                <Text style={styles.rememberText}>
-                  Remember me
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleForgotPassword}
-                disabled={resetLoading}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.forgotPasswordText}>
-                  {resetLoading
-                    ? 'Sending...'
-                    : 'Forgot password?'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {message ? (
-              <View
-                style={[
-                  styles.messageBox,
-                  message.startsWith('Password reset email sent') &&
-                    styles.successMessageBox,
-                ]}
-              >
-                <Ionicons
-                  name={
-                    message.startsWith('Password reset email sent')
-                      ? 'checkmark-circle-outline'
-                      : 'alert-circle-outline'
-                  }
-                  size={17}
-                  color={
-                    message.startsWith('Password reset email sent')
-                      ? Brand.success
-                      : Brand.danger
-                  }
-                />
-                <Text
-                  style={[
-                    styles.errorMessage,
-                    message.startsWith('Password reset email sent') &&
-                      styles.successMessageText,
-                  ]}
-                >
-                  {message}
-                </Text>
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (!formComplete || loading) &&
-                  styles.disabledButton,
-              ]}
-              onPress={handleSignIn}
-              disabled={!formComplete || loading}
-              activeOpacity={0.88}
-            >
-              {loading ? (
-                <ActivityIndicator color={Brand.navy900} />
-              ) : (
-                <>
-                  <Text style={styles.primaryButtonText}>
-                    SIGN IN
-                  </Text>
+                <View style={styles.featurePill}>
                   <Ionicons
-                    name="arrow-forward"
-                    size={17}
-                    color={Brand.navy900}
+                    name="briefcase-outline"
+                    size={15}
+                    color={Brand.gold500}
                   />
-                </>
-              )}
-            </TouchableOpacity>
+                  <Text style={styles.featurePillText}>JOBS</Text>
+                </View>
 
-            <View style={styles.separatorRow}>
-              <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>
-                NEW TO TRADES HUB?
-              </Text>
-              <View style={styles.separatorLine} />
+                <View style={styles.featurePill}>
+                  <Ionicons
+                    name="storefront-outline"
+                    size={15}
+                    color={Brand.gold500}
+                  />
+                  <Text style={styles.featurePillText}>MARKETPLACE</Text>
+                </View>
+              </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.createAccountButton}
-              onPress={() => router.push('/signup')}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.createAccountText}>
-                CREATE ACCOUNT
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.formPanel}>
+              <View style={styles.formCard}>
+                <View style={styles.formHeader}>
+                  <Text style={styles.formEyebrow}>WELCOME BACK</Text>
+                  <Text style={styles.formTitle}>Sign in</Text>
+                  <Text style={styles.formSubtitle}>
+                    Access your Trades Hub workspace.
+                  </Text>
+                </View>
 
-            <Text style={styles.securityNote}>
-              Your account can hold multiple Trades Hub roles.
-            </Text>
+                <Text style={styles.inputLabel}>Email</Text>
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={18}
+                    color={Brand.textMuted}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="you@example.com"
+                    placeholderTextColor={Brand.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={email}
+                    onChangeText={(value) => {
+                      setEmail(value);
+                      if (message) setMessage('');
+                    }}
+                    autoComplete="email"
+                    textContentType="username"
+                    importantForAutofill="yes"
+                  />
+                </View>
+
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.inputShell}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color={Brand.textMuted}
+                  />
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your password"
+                    placeholderTextColor={Brand.textMuted}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={(value) => {
+                      setPassword(value);
+                      if (message) setMessage('');
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="current-password"
+                    textContentType="password"
+                    importantForAutofill="yes"
+                    onSubmitEditing={handleSignIn}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() =>
+                      setShowPassword((current) => !current)
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={
+                        showPassword
+                          ? 'eye-off-outline'
+                          : 'eye-outline'
+                      }
+                      size={20}
+                      color={Brand.gold500}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.loginOptionsRow}>
+                  <TouchableOpacity
+                    style={styles.rememberRow}
+                    onPress={() =>
+                      setRememberMe((current) => !current)
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.checkbox,
+                        rememberMe && styles.checkboxChecked,
+                      ]}
+                    >
+                      {rememberMe ? (
+                        <Ionicons
+                          name="checkmark"
+                          size={14}
+                          color={Brand.navy900}
+                        />
+                      ) : null}
+                    </View>
+
+                    <Text style={styles.rememberText}>
+                      Remember me
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleForgotPassword}
+                    disabled={resetLoading}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.forgotPasswordText}>
+                      {resetLoading
+                        ? 'Sending...'
+                        : 'Forgot password?'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {message ? (
+                  <View
+                    style={[
+                      styles.messageBox,
+                      message.startsWith('Password reset email sent') &&
+                        styles.successMessageBox,
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        message.startsWith('Password reset email sent')
+                          ? 'checkmark-circle-outline'
+                          : 'alert-circle-outline'
+                      }
+                      size={17}
+                      color={
+                        message.startsWith('Password reset email sent')
+                          ? Brand.success
+                          : Brand.danger
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.errorMessage,
+                        message.startsWith('Password reset email sent') &&
+                          styles.successMessageText,
+                      ]}
+                    >
+                      {message}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    (!formComplete || loading) &&
+                      styles.disabledButton,
+                  ]}
+                  onPress={handleSignIn}
+                  disabled={!formComplete || loading}
+                  activeOpacity={0.88}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={Brand.navy900} />
+                  ) : (
+                    <>
+                      <Text style={styles.primaryButtonText}>
+                        SIGN IN
+                      </Text>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={17}
+                        color={Brand.navy900}
+                      />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <View style={styles.separatorRow}>
+                  <View style={styles.separatorLine} />
+                  <Text style={styles.separatorText}>
+                    NEW TO TRADES HUB?
+                  </Text>
+                  <View style={styles.separatorLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.createAccountButton}
+                  onPress={() => router.push('/signup')}
+                  activeOpacity={0.88}
+                >
+                  <Text style={styles.createAccountText}>
+                    CREATE ACCOUNT
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.securityRow}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={14}
+                    color={Brand.textMuted}
+                  />
+                  <Text style={styles.securityNote}>
+                    One account can hold multiple Trades Hub roles.
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </ImageBackground>
     </KeyboardAvoidingView>
   );
 }
@@ -538,119 +540,162 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: Brand.navy950,
-    overflow: 'hidden',
   },
 
-  backdropGlowOne: {
-    position: 'absolute',
-    width: 520,
-    height: 520,
-    borderRadius: 260,
-    backgroundColor: 'rgba(77, 157, 224, 0.07)',
-    top: -160,
-    left: -180,
+  pageBackground: {
+    flex: 1,
+    backgroundColor: Brand.navy950,
   },
 
-  backdropGlowTwo: {
+  pageBackgroundImage: {
+    opacity: 1,
+    transform:
+      Platform.OS === 'web'
+        ? [{ scale: 1.06 }, { translateX: 52 }, { translateY: 110 }]
+        : [{ scale: 1.02 }, { translateY: 24 }],
+  },
+
+  pageOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(4, 14, 25, 0.84)',
+  },
+
+  leftShade: {
     position: 'absolute',
-    width: 460,
-    height: 460,
-    borderRadius: 230,
-    backgroundColor: 'rgba(210, 185, 91, 0.05)',
-    bottom: -180,
-    right: -120,
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: Platform.OS === 'web' ? '58%' : '100%',
+    backgroundColor: 'rgba(7, 23, 38, 0.16)',
+  },
+
+  rightShade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: Platform.OS === 'web' ? '44%' : '100%',
+    backgroundColor:
+      Platform.OS === 'web'
+        ? 'rgba(3, 11, 20, 0.36)'
+        : 'rgba(3, 11, 20, 0.10)',
   },
 
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.six,
-    paddingVertical: Spacing.eight,
+    paddingHorizontal: Platform.OS === 'web' ? 28 : Spacing.five,
+    paddingVertical: Platform.OS === 'web' ? 40 : Spacing.six,
   },
 
   shell: {
     width: '100%',
-    maxWidth: Layout.maxContentWidth,
+    maxWidth: Platform.OS === 'web' ? 1440 : 1240,
+    minHeight: Platform.OS === 'web' ? 680 : undefined,
     alignSelf: 'center',
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
-    gap: Platform.OS === 'web' ? 64 : 32,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    gap: Platform.OS === 'web' ? 48 : 28,
   },
 
   brandSide: {
     flex: 1,
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 660,
     alignItems: Platform.OS === 'web' ? 'flex-start' : 'center',
   },
 
   logoImage: {
-    width: Platform.OS === 'web' ? 360 : 300,
+    width: Platform.OS === 'web' ? 300 : 240,
     maxWidth: '100%',
-    height: 104,
-    marginBottom: 20,
+    height: Platform.OS === 'web' ? 94 : 76,
+    marginBottom: Platform.OS === 'web' ? 34 : 24,
   },
 
-  eyebrow: {
+  goldRule: {
+    width: 54,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: Brand.gold500,
+    marginBottom: 18,
+  },
+
+  heroEyebrow: {
     color: Brand.gold500,
     fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.caption,
-    letterSpacing: 1.4,
-    marginBottom: 13,
+    fontSize: Platform.OS === 'web' ? 12 : 10,
+    letterSpacing: 1.6,
+    marginBottom: 12,
+    textAlign: Platform.OS === 'web' ? 'left' : 'center',
   },
 
   heroTitle: {
     color: Brand.white,
     fontFamily: FontFamily.display,
-    fontSize: 42,
-    lineHeight: 48,
-    letterSpacing: -0.7,
-    marginBottom: 12,
+    fontSize: Platform.OS === 'web' ? 56 : 38,
+    lineHeight: Platform.OS === 'web' ? 62 : 44,
+    letterSpacing: -1.1,
+    marginBottom: 16,
     textAlign: Platform.OS === 'web' ? 'left' : 'center',
   },
 
   heroSubtitle: {
-    color: Brand.textSecondary,
+    color: 'rgba(241, 245, 249, 0.90)',
     fontFamily: FontFamily.body,
-    fontSize: 16,
-    lineHeight: 25,
-    maxWidth: 440,
+    fontSize: Platform.OS === 'web' ? 18 : 15,
+    lineHeight: Platform.OS === 'web' ? 29 : 23,
+    maxWidth: 535,
+    marginBottom: 28,
     textAlign: Platform.OS === 'web' ? 'left' : 'center',
   },
 
-  brandRule: {
-    width: 56,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: Brand.gold500,
-    marginTop: 28,
-    marginBottom: 18,
+  featurePills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center',
   },
 
-  brandPoint: {
+  featurePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    maxWidth: 430,
+    gap: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(210, 185, 91, 0.30)',
+    backgroundColor: 'rgba(8, 24, 39, 0.56)',
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
   },
 
-  brandPointText: {
-    flex: 1,
-    color: Brand.textMuted,
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: 12,
-    lineHeight: 18,
+  featurePillText: {
+    color: 'rgba(241, 245, 249, 0.90)',
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+  },
+
+  formPanel: {
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 500 : '100%',
+    alignSelf: 'center',
+    marginLeft: 'auto',
   },
 
   formCard: {
     width: '100%',
-    maxWidth: Layout.authCardWidth,
-    backgroundColor: 'rgba(21, 37, 54, 0.97)',
+    backgroundColor: 'rgba(12, 24, 37, 0.95)',
     borderWidth: 1,
-    borderColor: Brand.border,
-    borderRadius: Radius.lg,
-    padding: 28,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 24,
+    paddingHorizontal: Platform.OS === 'web' ? 30 : 20,
+    paddingVertical: Platform.OS === 'web' ? 30 : 22,
+    shadowColor: '#000',
+    shadowOpacity: 0.30,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 12,
   },
 
   formHeader: {
@@ -661,38 +706,38 @@ const styles = StyleSheet.create({
     color: Brand.gold500,
     fontFamily: FontFamily.bodyBold,
     fontSize: 10,
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
     marginBottom: 8,
   },
 
   formTitle: {
     color: Brand.white,
     fontFamily: FontFamily.heading,
-    fontSize: 25,
-    lineHeight: 31,
+    fontSize: 30,
+    lineHeight: 36,
     marginBottom: 7,
   },
 
   formSubtitle: {
     color: Brand.textMuted,
     fontFamily: FontFamily.body,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
   },
 
   inputLabel: {
     color: Brand.textSecondary,
     fontFamily: FontFamily.bodySemiBold,
-    fontSize: 11,
-    marginBottom: 7,
+    fontSize: 12,
+    marginBottom: 8,
   },
 
   inputShell: {
-    minHeight: 52,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Surfaces.input,
+    backgroundColor: 'rgba(18, 34, 50, 0.92)',
     borderWidth: 1,
     borderColor: Brand.borderStrong,
     borderRadius: Radius.md,
@@ -722,7 +767,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     marginTop: -2,
-    marginBottom: 16,
+    marginBottom: 18,
   },
 
   rememberRow: {
@@ -789,7 +834,7 @@ const styles = StyleSheet.create({
   },
 
   primaryButton: {
-    minHeight: 52,
+    minHeight: 54,
     backgroundColor: Brand.gold500,
     borderRadius: Radius.md,
     flexDirection: 'row',
@@ -807,7 +852,7 @@ const styles = StyleSheet.create({
     color: Brand.navy900,
     fontFamily: FontFamily.bodyBold,
     fontSize: 12,
-    letterSpacing: 0.7,
+    letterSpacing: 0.8,
   },
 
   separatorRow: {
@@ -831,7 +876,7 @@ const styles = StyleSheet.create({
   },
 
   createAccountButton: {
-    minHeight: 50,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: Brand.gold500,
     borderRadius: Radius.md,
@@ -844,7 +889,15 @@ const styles = StyleSheet.create({
     color: Brand.gold500,
     fontFamily: FontFamily.bodyBold,
     fontSize: 12,
-    letterSpacing: 0.7,
+    letterSpacing: 0.8,
+  },
+
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 16,
   },
 
   securityNote: {
@@ -853,6 +906,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 15,
     textAlign: 'center',
-    marginTop: 15,
   },
 });

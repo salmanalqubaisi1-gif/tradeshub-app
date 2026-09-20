@@ -1,0 +1,4 @@
+normalized_model_number,store_number,price,regular_price,product_url,retailer_sku,in_stock,online_available,pickup_available,sale,clearance,store_location,city,province,source_record_id,observed_at,expires_at,is_test
+290420,EDMONTON-WEST,249.99,299.99,https://example.com/product,TEST-290420,true,true,true,true,false,KMS Tools Edmonton,Edmonton,Alberta,test-290420,,,true
+295320,EDMONTON-WEST,229.99,269.99,https://example.com/product,TEST-295320,true,true,true,true,false,KMS Tools Edmonton,Edmonton,Alberta,test-295320,,,true
+282120,EDMONTON-WEST,249.99,299.99,https://example.com/product,TEST-282120,true,true,true,true,false,KMS Tools Edmonton,Edmonton,Alberta,test-282120,,,true

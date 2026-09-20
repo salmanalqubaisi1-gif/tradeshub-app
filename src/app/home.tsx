@@ -15,12 +15,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { Brand, FontFamily } from '../constants/theme';
-import {
-  getApprenticeshipLevels,
-  getPeriodHours,
-  getTotalRequiredHours,
-} from '../constants/trades';
+import HomeownerFindPro from '../components/homeowner/HomeownerFindPro';
+import MarketplaceScreen from '../components/marketplace/MarketplaceScreen';
+import SupplierDashboard from '../components/supplier/SupplierDashboard';
+import SupplierProducts from '../components/supplier/SupplierProducts';
 import {
   EMPLOYMENT_TYPES,
   JOB_CITY_OPTIONS,
@@ -32,6 +30,13 @@ import {
   ROLE_TABS,
   WAGE_UNITS,
 } from '../constants/home';
+import { Brand, FontFamily } from '../constants/theme';
+import {
+  getApprenticeshipLevels,
+  getPeriodHours,
+  getTotalRequiredHours,
+} from '../constants/trades';
+import { supabase } from '../lib/supabase';
 import type {
   CompanySuggestion,
   GoogleCompanySuggestion,
@@ -52,12 +57,10 @@ import {
   formatPhoneNumber,
   getProviderSearchAliases,
   getTradeWorkTypes,
-  isValidEmailFormat,
   isValidPhoneNumber,
   moderationMessage,
-  normalizeTrainingProviderSearchText,
+  normalizeTrainingProviderSearchText
 } from '../utils/home';
-import { supabase } from '../lib/supabase';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -127,6 +130,9 @@ export default function HomeScreen() {
   const [hoursEntries, setHoursEntries] = useState<HoursEntry[]>([]);
   const [hoursLoading, setHoursLoading] = useState(true);
   const [hoursView, setHoursView] = useState<HoursView>('week');
+  const [careerProgressExpanded, setCareerProgressExpanded] = useState(true);
+  const [careerHoursExpanded, setCareerHoursExpanded] = useState(false);
+  const [careerMilestonesExpanded, setCareerMilestonesExpanded] = useState(false);
   const [clockActionLoading, setClockActionLoading] = useState(false);
   const [clockMessage, setClockMessage] = useState('');
 
@@ -3355,6 +3361,54 @@ export default function HomeScreen() {
   function renderFeed() {
     const role = ROLE_CONFIG[activeRole];
 
+    const currentPeriodProgress =
+      currentPeriodNumber !== null
+        ? periodProgress.find(
+            (period) => period.periodNumber === currentPeriodNumber
+          )
+        : undefined;
+
+    const currentTraining =
+      currentPeriodNumber !== null
+        ? trainingEntries.find(
+            (entry) => entry.period_number === currentPeriodNumber
+          )
+        : undefined;
+
+    const currentPeriodPercentage =
+      currentPeriodProgress?.requiredHours
+        ? Math.min(
+            (currentPeriodProgress.loggedHours /
+              currentPeriodProgress.requiredHours) *
+              100,
+            100
+          )
+        : 0;
+
+    const currentPeriodRemaining =
+      currentPeriodProgress?.requiredHours
+        ? Math.max(
+            currentPeriodProgress.requiredHours -
+              currentPeriodProgress.loggedHours,
+            0
+          )
+        : null;
+
+    const recentCareerActivity = completedHoursEntries
+      .slice()
+      .sort((a, b) => b.work_date.localeCompare(a.work_date))
+      .slice(0, 3);
+
+    const contractorJobs = jobPosts.filter(
+      (job) => job.source_type === 'contractor'
+    );
+    const contractorActiveJobs = contractorJobs.filter(
+      (job) => job.status === 'active'
+    );
+    const contractorDraftJobs = contractorJobs.filter(
+      (job) => job.status === 'draft'
+    );
+
     const roleActions: Record<
       TradesHubRole,
       { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }[]
@@ -3465,49 +3519,570 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.dashboardSectionTitle}>
-          Your workspace
-        </Text>
+        {activeRole === 'tradesperson' ? (
+          <View style={styles.careerOverviewCard}>
+            <View style={styles.careerOverviewHeader}>
+              <View style={styles.careerOverviewHeadingWrap}>
+                <Text style={styles.careerOverviewEyebrow}>
+                  CAREER OVERVIEW
+                </Text>
+                <Text style={styles.careerOverviewTrade}>
+                  {profile?.trade || 'Trade not set'}
+                </Text>
+                <Text style={styles.careerOverviewLevel}>
+                  {profile?.apprenticeshipLevel || 'Apprenticeship level not set'}
+                </Text>
+              </View>
 
-        <View style={styles.dashboardGrid}>
-          {roleActions[activeRole].map((item) => (
-            <View
-              key={item.title}
-              style={styles.dashboardCard}
-            >
-              <View
-                style={[
-                  styles.dashboardIcon,
-                  { borderColor: role.color },
-                ]}
-              >
+              <View style={styles.careerOverviewBadge}>
                 <Ionicons
-                  name={item.icon}
-                  size={22}
-                  color={role.color}
+                  name="construct-outline"
+                  size={20}
+                  color="#D2B95B"
+                />
+              </View>
+            </View>
+
+            <View style={styles.careerOverviewStatsRow}>
+              <View style={styles.careerOverviewStat}>
+                <Text style={styles.careerOverviewStatLabel}>
+                  TRACKED HOURS
+                </Text>
+                <Text style={styles.careerOverviewStatValue}>
+                  {formatHours(totalHours)}
+                </Text>
+              </View>
+
+              <View style={styles.careerOverviewStatDivider} />
+
+              <View style={styles.careerOverviewStat}>
+                <Text style={styles.careerOverviewStatLabel}>
+                  CURRENT PERIOD
+                </Text>
+                <Text style={styles.careerOverviewStatValue}>
+                  {currentPeriodNumber ? `Period ${currentPeriodNumber}` : '—'}
+                </Text>
+              </View>
+
+              <View style={styles.careerOverviewStatDivider} />
+
+              <View style={styles.careerOverviewStat}>
+                <Text style={styles.careerOverviewStatLabel}>
+                  TRAINING
+                </Text>
+                <Text
+                  style={[
+                    styles.careerOverviewStatValue,
+                    currentTraining?.status === 'Passed' && {
+                      color: '#62B77A',
+                    },
+                    currentTraining?.status === 'Failed' && {
+                      color: '#E56B6B',
+                    },
+                  ]}
+                >
+                  {currentTraining?.status || 'Not Started'}
+                </Text>
+              </View>
+            </View>
+
+            {currentPeriodProgress ? (
+              <View style={styles.careerOverviewProgressSection}>
+                <View style={styles.careerOverviewProgressHeader}>
+                  <Text style={styles.careerOverviewProgressLabel}>
+                    PERIOD {currentPeriodNumber} HOURS
+                  </Text>
+                  <Text style={styles.careerOverviewProgressPercent}>
+                    {formatPercentage(currentPeriodPercentage)}
+                  </Text>
+                </View>
+
+                <Text style={styles.careerOverviewProgressValue}>
+                  {formatHours(currentPeriodProgress.loggedHours)} /{' '}
+                  {formatNumber(currentPeriodProgress.requiredHours)} hours
+                </Text>
+
+                <View style={styles.careerOverviewProgressTrack}>
+                  <View
+                    style={[
+                      styles.careerOverviewProgressFill,
+                      { width: `${currentPeriodPercentage}%` },
+                    ]}
+                  />
+                </View>
+
+                <Text style={styles.careerOverviewMilestone}>
+                  {currentPeriodRemaining === 0
+                    ? 'Required period hours reached.'
+                    : currentPeriodRemaining !== null
+                      ? `${formatNumber(currentPeriodRemaining)} hours remaining in this period`
+                      : 'Add hours to start tracking this period.'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.careerOverviewEmptyProgress}>
+                <Text style={styles.careerOverviewEmptyText}>
+                  Add apprenticeship hours to start tracking your current period.
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.careerOverviewTrainingRow}>
+              <View style={styles.careerOverviewTrainingIcon}>
+                <Ionicons
+                  name="school-outline"
+                  size={18}
+                  color="#D2B95B"
                 />
               </View>
 
-              <Text style={styles.dashboardCardTitle}>
-                {item.title}
-              </Text>
+              <View style={styles.careerOverviewTrainingCopy}>
+                <Text style={styles.careerOverviewTrainingTitle}>
+                  Technical Training
+                </Text>
+                <Text style={styles.careerOverviewTrainingText}>
+                  {currentTraining?.school_name ||
+                    (currentTraining?.status
+                      ? `Period ${currentPeriodNumber} — ${currentTraining.status}`
+                      : 'No training provider added for this period yet.')}
+                </Text>
+              </View>
+            </View>
 
-              <Text style={styles.dashboardCardText}>
-                {item.text}
+            <View style={styles.careerOverviewActions}>
+              <TouchableOpacity
+                style={styles.careerOverviewPrimaryButton}
+                onPress={() => {
+                  setHoursMessage('');
+                  setNewPeriod(
+                    currentPeriodNumber ?? periodNumbers[0] ?? null
+                  );
+                  setNewCompany('');
+                  setNewWorkType('');
+                  setShowHoursModal(true);
+                }}
+              >
+                <Ionicons name="add" size={18} color="#0B1623" />
+                <Text style={styles.careerOverviewPrimaryButtonText}>
+                  LOG HOURS
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.careerOverviewSecondaryButton}
+                onPress={() => setActiveTab('Career')}
+              >
+                <Text style={styles.careerOverviewSecondaryButtonText}>
+                  VIEW CAREER
+                </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={17}
+                  color="#D2B95B"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {totalRequiredHours ? (
+              <Text style={styles.careerOverviewOverallNote}>
+                Overall: {formatHours(assignedHours)} /{' '}
+                {formatNumber(totalRequiredHours)} assigned apprenticeship hours
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {activeRole === 'tradesperson' ? (
+          <>
+            <View style={styles.homeClockSectionHeader}>
+              <Text style={styles.homeClockSectionTitle}>Shift Tracker</Text>
+              <Text style={styles.homeClockSectionHint}>
+                Track today’s work hours
               </Text>
             </View>
-          ))}
-        </View>
 
-        <View style={styles.feedSection}>
-          <Text style={styles.dashboardSectionTitle}>
-            Trade community
-          </Text>
+            <View
+              style={[
+                styles.homeClockCard,
+                activeClockEntry && styles.homeClockCardActive,
+              ]}
+            >
+              <View style={styles.homeClockCopy}>
+                <View style={styles.homeClockTitleRow}>
+                  <View
+                    style={[
+                      styles.homeClockDot,
+                      activeClockEntry && styles.homeClockDotActive,
+                    ]}
+                  />
+                  <Text style={styles.homeClockEyebrow}>SHIFT TRACKING</Text>
+                </View>
 
-          <Text style={styles.pageSubtitle}>
-            Work photos, trade discussions and community updates will live here.
-          </Text>
-        </View>
+                <Text style={styles.homeClockTitle}>
+                  {activeClockEntry ? 'Shift in progress' : 'Ready for work?'}
+                </Text>
+
+                <Text style={styles.homeClockMeta}>
+                  {activeClockEntry?.clock_in
+                    ? `Clocked in at ${new Date(
+                        activeClockEntry.clock_in
+                      ).toLocaleTimeString('en-CA', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}`
+                    : 'Start tracking your apprenticeship hours.'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.homeClockButton,
+                  activeClockEntry && styles.homeClockButtonActive,
+                  clockActionLoading && styles.disabledButton,
+                ]}
+                onPress={
+                  activeClockEntry ? handleClockOut : handleClockIn
+                }
+                disabled={clockActionLoading}
+              >
+                {clockActionLoading ? (
+                  <ActivityIndicator
+                    color={activeClockEntry ? '#FFFFFF' : '#0B1623'}
+                  />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={
+                        activeClockEntry
+                          ? 'stop-circle-outline'
+                          : 'play-circle-outline'
+                      }
+                      size={19}
+                      color={activeClockEntry ? '#FFFFFF' : '#0B1623'}
+                    />
+                    <Text
+                      style={[
+                        styles.homeClockButtonText,
+                        activeClockEntry &&
+                          styles.homeClockButtonTextActive,
+                      ]}
+                    >
+                      {activeClockEntry ? 'CLOCK OUT' : 'CLOCK IN'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.dashboardSectionTitle}>
+              Quick actions
+            </Text>
+
+            <View style={styles.quickActionGrid}>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveTab('Career')}
+              >
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name="school-outline" size={18} color="#D2B95B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickActionTitle}>Training</Text>
+                  <Text style={styles.quickActionText}>
+                    Update technical training
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color="#6F8091" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveTab('Jobs')}
+              >
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name="briefcase-outline" size={18} color="#D2B95B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickActionTitle}>Trade Jobs</Text>
+                  <Text style={styles.quickActionText}>
+                    Browse current openings
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color="#6F8091" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveTab('Profile')}
+              >
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name="person-outline" size={18} color="#D2B95B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickActionTitle}>Profile</Text>
+                  <Text style={styles.quickActionText}>
+                    Trade identity and credentials
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color="#6F8091" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dashboardSectionHeaderRow}>
+              <Text style={styles.dashboardSectionTitle}>
+                Recent activity
+              </Text>
+              <TouchableOpacity onPress={() => setActiveTab('Career')}>
+                <Text style={styles.dashboardSectionLink}>VIEW ALL</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.recentActivityCard}>
+              {recentCareerActivity.length > 0 ? (
+                recentCareerActivity.map((entry, index) => (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.recentActivityRow,
+                      index < recentCareerActivity.length - 1 &&
+                        styles.recentActivityRowBorder,
+                    ]}
+                  >
+                    <View style={styles.recentActivityIcon}>
+                      <Ionicons name="time-outline" size={16} color="#D2B95B" />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.recentActivityTitle}>
+                        {formatHours(entry.hours)} hours logged
+                      </Text>
+                      <Text style={styles.recentActivityMeta}>
+                        {entry.company_name || 'Company not set'}
+                        {entry.work_type ? ` · ${entry.work_type}` : ''}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.recentActivityDate}>
+                      {formatDate(entry.work_date)}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.recentActivityEmpty}>
+                  <Ionicons name="time-outline" size={18} color="#6F8091" />
+                  <Text style={styles.recentActivityEmptyText}>
+                    No hours logged yet.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        ) : activeRole === 'contractor' ? (
+          <>
+            <View style={styles.contractorOverviewGrid}>
+              <View style={styles.contractorStatCard}>
+                <Text style={styles.contractorStatLabel}>ACTIVE JOBS</Text>
+                <Text style={styles.contractorStatValue}>
+                  {contractorActiveJobs.length}
+                </Text>
+                <Text style={styles.contractorStatHint}>
+                  Currently visible to tradespeople
+                </Text>
+              </View>
+
+              <View style={styles.contractorStatCard}>
+                <Text style={styles.contractorStatLabel}>DRAFTS</Text>
+                <Text style={styles.contractorStatValue}>
+                  {contractorDraftJobs.length}
+                </Text>
+                <Text style={styles.contractorStatHint}>
+                  Job posts waiting to publish
+                </Text>
+              </View>
+
+              <View style={styles.contractorStatCard}>
+                <Text style={styles.contractorStatLabel}>TOTAL POSTS</Text>
+                <Text style={styles.contractorStatValue}>
+                  {contractorJobs.length}
+                </Text>
+                <Text style={styles.contractorStatHint}>
+                  All contractor-created jobs
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.contractorActionRow}>
+              <TouchableOpacity
+                style={styles.contractorPrimaryAction}
+                onPress={openCreateJob}
+              >
+                <Ionicons name="add" size={18} color="#0B1623" />
+                <Text style={styles.contractorPrimaryActionText}>
+                  POST A JOB
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.contractorSecondaryAction}
+                onPress={() => setActiveTab('Jobs')}
+              >
+                <Ionicons name="briefcase-outline" size={18} color={role.color} />
+                <Text
+                  style={[
+                    styles.contractorSecondaryActionText,
+                    { color: role.color },
+                  ]}
+                >
+                  MANAGE JOBS
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.contractorSecondaryAction}
+                onPress={() => setActiveTab('Profile')}
+              >
+                <Ionicons name="business-outline" size={18} color={role.color} />
+                <Text
+                  style={[
+                    styles.contractorSecondaryActionText,
+                    { color: role.color },
+                  ]}
+                >
+                  COMPANY PROFILE
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dashboardSectionHeaderRow}>
+              <Text style={styles.dashboardSectionTitle}>
+                Recent job posts
+              </Text>
+              <TouchableOpacity onPress={() => setActiveTab('Jobs')}>
+                <Text
+                  style={[
+                    styles.dashboardSectionLink,
+                    { color: role.color },
+                  ]}
+                >
+                  VIEW ALL
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.contractorRecentCard}>
+              {contractorJobs.length > 0 ? (
+                contractorJobs.slice(0, 3).map((job, index) => (
+                  <TouchableOpacity
+                    key={job.id}
+                    style={[
+                      styles.contractorRecentRow,
+                      index < Math.min(contractorJobs.length, 3) - 1 &&
+                        styles.contractorRecentRowBorder,
+                    ]}
+                    onPress={() => setActiveTab('Jobs')}
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={[
+                        styles.contractorRecentIcon,
+                        { borderColor: role.color },
+                      ]}
+                    >
+                      <Ionicons
+                        name="briefcase-outline"
+                        size={17}
+                        color={role.color}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.contractorRecentTitle}>
+                        {job.title}
+                      </Text>
+                      <Text style={styles.contractorRecentMeta}>
+                        {job.trade} · {job.city}, {job.province}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.contractorStatusBadge,
+                        job.status === 'active'
+                          ? styles.contractorStatusActive
+                          : styles.contractorStatusDraft,
+                      ]}
+                    >
+                      <Text style={styles.contractorStatusText}>
+                        {job.status.toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#6F8091"
+                    />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.contractorEmptyState}>
+                  <Ionicons
+                    name="briefcase-outline"
+                    size={22}
+                    color={role.color}
+                  />
+                  <Text style={styles.contractorEmptyTitle}>
+                    No job posts yet
+                  </Text>
+                  <Text style={styles.contractorEmptyText}>
+                    Create your first opening and start building your hiring pipeline.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        ) : activeRole === 'supplier' ? (
+          <SupplierDashboard
+            roleColor={role.color}
+            businessName={roleProfiles.supplier?.business_name}
+            onOpenMarketplace={() => setActiveTab('Marketplace' as any)}
+            onOpenProducts={() => setActiveTab('Jobs')}
+            onOpenProfile={() => setActiveTab('Profile')}
+          />
+        ) : (
+          <>
+            <Text style={styles.dashboardSectionTitle}>
+              Your workspace
+            </Text>
+
+            <View style={styles.dashboardGrid}>
+              {roleActions[activeRole].map((item) => (
+                <View key={item.title} style={styles.dashboardCard}>
+                  <View
+                    style={[
+                      styles.dashboardIcon,
+                      { borderColor: role.color },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={22}
+                      color={role.color}
+                    />
+                  </View>
+
+                  <Text style={styles.dashboardCardTitle}>
+                    {item.title}
+                  </Text>
+
+                  <Text style={styles.dashboardCardText}>
+                    {item.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </View>
     );
   }
@@ -3845,10 +4420,33 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          Apprenticeship Progress
-        </Text>
+        <TouchableOpacity
+          style={styles.careerSectionHeader}
+          onPress={() => setCareerProgressExpanded((current) => !current)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.careerSectionHeaderLeft}>
+            <View style={styles.careerSectionHeaderIcon}>
+              <Ionicons name="trending-up-outline" size={19} color="#D2B95B" />
+            </View>
+            <View>
+              <Text style={styles.careerSectionHeaderTitle}>
+                Apprenticeship Progress
+              </Text>
+              <Text style={styles.careerSectionHeaderMeta}>
+                Period status and advancement
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name={careerProgressExpanded ? 'chevron-up' : 'chevron-down'}
+            size={24}
+            color="#D2B95B"
+          />
+        </TouchableOpacity>
 
+        {careerProgressExpanded ? (
+          <>
         <View style={styles.progressCard}>
           {careerLevels.map(
             (level, index) => {
@@ -4083,10 +4681,36 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>
-          Hours Tracker
-        </Text>
+          </>
+        ) : null}
 
+        <TouchableOpacity
+          style={styles.careerSectionHeader}
+          onPress={() => setCareerHoursExpanded((current) => !current)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.careerSectionHeaderLeft}>
+            <View style={styles.careerSectionHeaderIcon}>
+              <Ionicons name="time-outline" size={19} color="#D2B95B" />
+            </View>
+            <View>
+              <Text style={styles.careerSectionHeaderTitle}>
+                Hours & Apprenticeship
+              </Text>
+              <Text style={styles.careerSectionHeaderMeta}>
+                {formatHours(totalHours)} tracked · {formatPercentage(overallProgressPercentage)} overall
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name={careerHoursExpanded ? 'chevron-up' : 'chevron-down'}
+            size={24}
+            color="#D2B95B"
+          />
+        </TouchableOpacity>
+
+        {careerHoursExpanded ? (
+          <>
         <View style={styles.hoursCard}>
           <View style={styles.hoursTopRow}>
             <View>
@@ -4775,10 +5399,36 @@ export default function HomeScreen() {
           </>
         )}
 
-        <Text style={styles.sectionTitle}>
-          Career Milestones
-        </Text>
+          </>
+        ) : null}
 
+        <TouchableOpacity
+          style={styles.careerSectionHeader}
+          onPress={() => setCareerMilestonesExpanded((current) => !current)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.careerSectionHeaderLeft}>
+            <View style={styles.careerSectionHeaderIcon}>
+              <Ionicons name="school-outline" size={19} color="#D2B95B" />
+            </View>
+            <View>
+              <Text style={styles.careerSectionHeaderTitle}>
+                Training & Credentials
+              </Text>
+              <Text style={styles.careerSectionHeaderMeta}>
+                Technical training, marks and qualifications
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name={careerMilestonesExpanded ? 'chevron-up' : 'chevron-down'}
+            size={24}
+            color="#D2B95B"
+          />
+        </TouchableOpacity>
+
+        {careerMilestonesExpanded ? (
+          <>
         <View style={styles.trainingCard}>
           {trainingLoading ? (
             <ActivityIndicator color="#CAAE53" />
@@ -4890,6 +5540,8 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+          </>
+        ) : null}
       </View>
     );
   }
@@ -5406,6 +6058,14 @@ export default function HomeScreen() {
     }
 
     if (activeTab === 'Jobs') {
+      if (activeRole === 'supplier') {
+        return <SupplierProducts roleColor={ROLE_CONFIG.supplier.color} />;
+      }
+
+      if (activeRole === 'homeowner') {
+        return <HomeownerFindPro roleColor={ROLE_CONFIG.homeowner.color} />;
+      }
+
       return renderJobs();
     }
 
@@ -5413,6 +6073,10 @@ export default function HomeScreen() {
       return activeRole === 'tradesperson'
         ? renderCareer()
         : renderFeed();
+    }
+
+    if ((activeTab as any) === 'Marketplace') {
+      return <MarketplaceScreen profileTrade={profile?.trade} />;
     }
 
     return renderProfile();
@@ -5691,7 +6355,14 @@ export default function HomeScreen() {
       </ScrollView>
 
       <View style={styles.bottomNav}>
-        {ROLE_TABS[activeRole].map((tab) => {
+        {[
+          ...ROLE_TABS[activeRole],
+          {
+            name: 'Marketplace' as any,
+            label: 'Market',
+            icon: 'storefront-outline' as const,
+          },
+        ].map((tab) => {
           const selected = activeTab === tab.name;
 
           return (
@@ -8610,18 +9281,18 @@ const styles = StyleSheet.create({
   roleHero: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
     backgroundColor: '#111F2E',
     borderWidth: 1,
-    borderRadius: 13,
-    padding: 20,
-    marginBottom: 26,
+    borderRadius: 11,
+    padding: 14,
+    marginBottom: 16,
   },
 
   roleHeroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 11,
+    width: 42,
+    height: 42,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -8640,59 +9311,774 @@ const styles = StyleSheet.create({
 
   roleHeroTitle: {
     color: Brand.white,
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: FontFamily.heading,
   },
 
   roleHeroText: {
     color: '#9BA7B4',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 3,
+  },
+
+  careerOverviewCard: {
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#3A4652',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+
+  careerOverviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+
+  careerOverviewHeadingWrap: {
+    flex: 1,
+  },
+
+  careerOverviewEyebrow: {
+    color: '#D2B95B',
+    fontSize: 10,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 1.3,
+    marginBottom: 5,
+  },
+
+  careerOverviewTrade: {
+    color: Brand.white,
+    fontSize: 18,
+    fontFamily: FontFamily.heading,
+  },
+
+  careerOverviewLevel: {
+    color: '#9BA7B4',
+    fontSize: 11,
+    fontFamily: FontFamily.bodyBold,
+    marginTop: 2,
+  },
+
+  careerOverviewBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4A4330',
+    backgroundColor: '#182435',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  careerOverviewStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    flexWrap: 'wrap',
+    backgroundColor: '#0D1B2A',
+    borderWidth: 1,
+    borderColor: '#25384A',
+    borderRadius: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+
+  careerOverviewStat: {
+    flexGrow: 1,
+    flexBasis: 92,
+    minWidth: 82,
+    paddingHorizontal: 8,
+  },
+
+  careerOverviewStatDivider: {
+    width: 1,
+    minHeight: 42,
+    backgroundColor: '#26394C',
+  },
+
+  careerOverviewStatLabel: {
+    color: '#728294',
+    fontSize: 9,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.9,
+    marginBottom: 5,
+  },
+
+  careerOverviewStatValue: {
+    color: Brand.white,
+    fontSize: 14,
+    fontFamily: FontFamily.heading,
+  },
+
+  careerOverviewProgressSection: {
+    marginBottom: 12,
+  },
+
+  careerOverviewProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  careerOverviewProgressLabel: {
+    color: '#A9B3BF',
+    fontSize: 10,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.8,
+  },
+
+  careerOverviewProgressPercent: {
+    color: '#D2B95B',
     fontSize: 13,
-    lineHeight: 19,
+    fontFamily: FontFamily.heading,
+  },
+
+  careerOverviewProgressValue: {
+    color: Brand.white,
+    fontSize: 15,
+    fontFamily: FontFamily.display,
     marginTop: 5,
+  },
+
+  careerOverviewProgressTrack: {
+    height: 7,
+    backgroundColor: '#1A2A3A',
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 7,
+  },
+
+  careerOverviewProgressFill: {
+    height: '100%',
+    backgroundColor: '#D2B95B',
+    borderRadius: 999,
+  },
+
+  careerOverviewMilestone: {
+    color: '#82909E',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 8,
+  },
+
+  careerOverviewEmptyProgress: {
+    backgroundColor: '#0D1B2A',
+    borderWidth: 1,
+    borderColor: '#25384A',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+
+  careerOverviewEmptyText: {
+    color: '#82909E',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  careerOverviewTrainingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: '#0D1B2A',
+    borderWidth: 1,
+    borderColor: '#25384A',
+    borderRadius: 11,
+    padding: 10,
+  },
+
+  careerOverviewTrainingIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#4A4330',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  careerOverviewTrainingCopy: {
+    flex: 1,
+  },
+
+  careerOverviewTrainingTitle: {
+    color: Brand.white,
+    fontSize: 13,
+    fontFamily: FontFamily.heading,
+  },
+
+  careerOverviewTrainingText: {
+    color: '#82909E',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+
+  careerOverviewActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+
+  careerOverviewPrimaryButton: {
+    minHeight: 38,
+    flexGrow: 1,
+    flexBasis: 150,
+    borderRadius: 9,
+    backgroundColor: '#D2B95B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 16,
+  },
+
+  careerOverviewPrimaryButtonText: {
+    color: '#0B1623',
+    fontSize: 11,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.7,
+  },
+
+  careerOverviewSecondaryButton: {
+    minHeight: 38,
+    flexGrow: 1,
+    flexBasis: 150,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#D2B95B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 16,
+  },
+
+  careerOverviewSecondaryButtonText: {
+    color: '#D2B95B',
+    fontSize: 11,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.7,
+  },
+
+  careerOverviewOverallNote: {
+    color: '#667788',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+
+  homeClockSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
+
+  homeClockSectionTitle: {
+    color: Brand.white,
+    fontSize: 16,
+    fontFamily: FontFamily.heading,
+  },
+
+  homeClockSectionHint: {
+    color: '#718193',
+    fontSize: 10,
+    fontFamily: FontFamily.bodyBold,
+  },
+
+  homeClockCard: {
+    backgroundColor: '#151F2B',
+    borderWidth: 1.5,
+    borderColor: '#D2B95B',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+
+  homeClockCardActive: {
+    borderColor: '#62B77A',
+    backgroundColor: '#10251F',
+  },
+
+  homeClockCopy: {
+    flex: 1,
+  },
+
+  homeClockTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 4,
+  },
+
+  homeClockDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 99,
+    backgroundColor: '#6F8091',
+  },
+
+  homeClockDotActive: {
+    backgroundColor: '#62B77A',
+  },
+
+  homeClockEyebrow: {
+    color: '#D2B95B',
+    fontSize: 10,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 1.0,
+  },
+
+  homeClockTitle: {
+    color: Brand.white,
+    fontSize: 18,
+    fontFamily: FontFamily.heading,
+  },
+
+  homeClockMeta: {
+    color: '#9AA7B4',
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  homeClockButton: {
+    minWidth: 190,
+    minHeight: 52,
+    borderRadius: 10,
+    backgroundColor: '#D2B95B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+
+  homeClockButtonActive: {
+    backgroundColor: '#C94B4B',
+  },
+
+  homeClockButtonText: {
+    color: '#0B1623',
+    fontSize: 13,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.8,
+  },
+
+  homeClockButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
+  careerSectionHeader: {
+    width: '100%',
+    minHeight: 68,
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#304457',
+    borderRadius: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginTop: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+
+  careerSectionHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+
+  careerSectionHeaderIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#4A4330',
+    backgroundColor: '#162536',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  careerSectionHeaderTitle: {
+    color: Brand.white,
+    fontSize: 14,
+    fontFamily: FontFamily.heading,
+  },
+
+  careerSectionHeaderMeta: {
+    color: '#7F8C99',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+
+  contractorOverviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 14,
+  },
+
+  contractorStatCard: {
+    flexGrow: 1,
+    flexBasis: 180,
+    minWidth: 160,
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#26394C',
+    borderRadius: 10,
+    padding: 14,
+  },
+
+  contractorStatLabel: {
+    color: '#7F8C99',
+    fontSize: 9,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.8,
+  },
+
+  contractorStatValue: {
+    color: Brand.white,
+    fontSize: 26,
+    fontFamily: FontFamily.display,
+    marginTop: 5,
+  },
+
+  contractorStatHint: {
+    color: '#718193',
+    fontSize: 9,
+    lineHeight: 14,
+    marginTop: 4,
+  },
+
+  contractorActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 9,
+    marginBottom: 18,
+  },
+
+  contractorPrimaryAction: {
+    minHeight: 44,
+    flexGrow: 1,
+    flexBasis: 180,
+    borderRadius: 9,
+    backgroundColor: '#4D9DE0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 16,
+  },
+
+  contractorPrimaryActionText: {
+    color: '#0B1623',
+    fontSize: 11,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.7,
+  },
+
+  contractorSecondaryAction: {
+    minHeight: 44,
+    flexGrow: 1,
+    flexBasis: 180,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#4D9DE0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 16,
+    backgroundColor: '#101F30',
+  },
+
+  contractorSecondaryActionText: {
+    fontSize: 11,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.6,
+  },
+
+  contractorRecentCard: {
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#26394C',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+
+  contractorRecentRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  contractorRecentRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#223547',
+  },
+
+  contractorRecentIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: '#162536',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  contractorRecentTitle: {
+    color: Brand.white,
+    fontSize: 12,
+    fontFamily: FontFamily.heading,
+  },
+
+  contractorRecentMeta: {
+    color: '#7F8C99',
+    fontSize: 9,
+    lineHeight: 14,
+    marginTop: 2,
+  },
+
+  contractorStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+
+  contractorStatusActive: {
+    backgroundColor: 'rgba(98, 183, 122, 0.15)',
+  },
+
+  contractorStatusDraft: {
+    backgroundColor: 'rgba(124, 135, 150, 0.15)',
+  },
+
+  contractorStatusText: {
+    color: '#A9B3BF',
+    fontSize: 8,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.5,
+  },
+
+  contractorEmptyState: {
+    minHeight: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+  },
+
+  contractorEmptyTitle: {
+    color: Brand.white,
+    fontSize: 13,
+    fontFamily: FontFamily.heading,
+    marginTop: 8,
+  },
+
+  contractorEmptyText: {
+    color: '#7F8C99',
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+    maxWidth: 360,
+    marginTop: 4,
+  },
+
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 9,
+    marginBottom: 18,
+  },
+
+  quickActionCard: {
+    flexGrow: 1,
+    flexBasis: 210,
+    minHeight: 64,
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#26394C',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  quickActionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4A4330',
+    backgroundColor: '#162536',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  quickActionTitle: {
+    color: Brand.white,
+    fontSize: 12,
+    fontFamily: FontFamily.heading,
+  },
+
+  quickActionText: {
+    color: '#7F8C99',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+
+  dashboardSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  dashboardSectionLink: {
+    color: '#D2B95B',
+    fontSize: 9,
+    fontFamily: FontFamily.heading,
+    letterSpacing: 0.7,
+    marginBottom: 9,
+  },
+
+  recentActivityCard: {
+    backgroundColor: '#101F30',
+    borderWidth: 1,
+    borderColor: '#26394C',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+
+  recentActivityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+
+  recentActivityRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#223547',
+  },
+
+  recentActivityIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#162536',
+    borderWidth: 1,
+    borderColor: '#4A4330',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  recentActivityTitle: {
+    color: Brand.white,
+    fontSize: 11,
+    fontFamily: FontFamily.heading,
+  },
+
+  recentActivityMeta: {
+    color: '#7F8C99',
+    fontSize: 9,
+    lineHeight: 14,
+    marginTop: 2,
+  },
+
+  recentActivityDate: {
+    color: '#69798A',
+    fontSize: 9,
+    fontFamily: FontFamily.bodyBold,
+    textAlign: 'right',
+    maxWidth: 105,
+  },
+
+  recentActivityEmpty: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+  },
+
+  recentActivityEmptyText: {
+    color: '#7F8C99',
+    fontSize: 10,
   },
 
   dashboardSectionTitle: {
     color: Brand.white,
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FontFamily.heading,
-    marginBottom: 12,
+    marginBottom: 9,
   },
 
   dashboardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 9,
   },
 
   dashboardCard: {
     flexGrow: 1,
-    flexBasis: 220,
+    flexBasis: 190,
     backgroundColor: Brand.navy800,
     borderWidth: 1,
     borderColor: '#26394C',
-    borderRadius: 11,
-    padding: 17,
+    borderRadius: 10,
+    padding: 13,
   },
 
   dashboardIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 7,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 13,
+    marginBottom: 9,
   },
 
   dashboardCardTitle: {
     color: Brand.white,
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: FontFamily.heading,
   },
 
   dashboardCardText: {
     color: '#8F9CAA',
-    fontSize: 12,
+    fontSize: 10,
     lineHeight: 18,
     marginTop: 6,
   },
@@ -9096,14 +10482,14 @@ const styles = StyleSheet.create({
     color: Brand.gold500,
     fontSize: 11,
     lineHeight: 16,
-    marginTop: 10,
+    marginTop: 7,
   },
 
   clockDisclaimer: {
     color: '#718092',
     fontSize: 10,
     lineHeight: 15,
-    marginTop: 10,
+    marginTop: 7,
   },
 
   hoursEntryMetaRow: {
@@ -9172,7 +10558,7 @@ const styles = StyleSheet.create({
     color: Brand.white,
     fontSize: 30,
     fontFamily: FontFamily.display,
-    marginTop: 10,
+    marginTop: 7,
   },
 
   officialProgressPercent: {
@@ -9554,7 +10940,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#33465A',
     borderRadius: 10,
-    padding: 14,
+    padding: 10,
   },
 
   hoursViewSummaryLabel: {
@@ -9572,7 +10958,7 @@ const styles = StyleSheet.create({
   },
 
   hoursBreakdownList: {
-    marginTop: 10,
+    marginTop: 7,
   },
 
   hoursBreakdownRow: {
@@ -9750,8 +11136,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#31465B',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 18,
+    padding: 10,
+    marginBottom: 12,
   },
 
   aitUploadHeader: {
@@ -9863,7 +11249,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
     backgroundColor: '#F6C84C',
     borderRadius: 9,
-    minHeight: 44,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -9882,7 +11268,7 @@ const styles = StyleSheet.create({
     color: Brand.white,
     fontSize: 11,
     fontFamily: FontFamily.bodyBold,
-    marginTop: 10,
+    marginTop: 7,
   },
 
   aitUploadMessage: {
@@ -10371,7 +11757,7 @@ const styles = StyleSheet.create({
     color: '#A9B3BF',
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 10,
+    marginTop: 7,
   },
 
   jobOptionGrid: {
@@ -11021,7 +12407,7 @@ const styles = StyleSheet.create({
 
   navText: {
     color: '#7C8796',
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: FontFamily.bodySemiBold,
   },
 
@@ -11198,7 +12584,7 @@ const styles = StyleSheet.create({
 
   manualModeButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 38,
     borderWidth: 1,
     borderColor: '#33465A',
     borderRadius: 9,
@@ -11231,8 +12617,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#31465B',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 18,
+    padding: 10,
+    marginBottom: 12,
   },
 
   historicalDateTitle: {
@@ -11254,8 +12640,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#31465B',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 18,
+    padding: 10,
+    marginBottom: 12,
   },
 
   manualTimeRow: {
