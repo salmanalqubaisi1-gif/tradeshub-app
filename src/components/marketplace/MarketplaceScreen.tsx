@@ -672,7 +672,11 @@ export default function MarketplaceScreen({
       .map((product) => ({
         ...product,
         offers: product.offers
-          .filter((offer) => offer.city?.trim().toLowerCase() === dealCity.trim().toLowerCase())
+          .filter(
+            (offer) =>
+              offer.onlineAvailable === true ||
+              offer.city?.trim().toLowerCase() === dealCity.trim().toLowerCase()
+          )
           .filter(isOfferFresh)
           .sort((a, b) => {
             const aAvailable = a.inStock !== false;
