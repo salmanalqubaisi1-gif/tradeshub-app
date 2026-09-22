@@ -627,10 +627,10 @@ export default function MarketplaceScreen({
       if (Number.isFinite(validUntil) && validUntil < Date.now()) return false;
     }
 
-    if (!offer.lastCheckedAt) return true;
+    if (!offer.lastCheckedAt) return false;
 
     const checkedAt = new Date(offer.lastCheckedAt).getTime();
-    if (!Number.isFinite(checkedAt)) return true;
+    if (!Number.isFinite(checkedAt)) return false;
 
     return Date.now() - checkedAt <= DEAL_FRESHNESS_HOURS * 60 * 60 * 1000;
   }
