@@ -1063,6 +1063,9 @@ export default function HomeScreen() {
       return;
     }
 
+    // Ignore responses from a search that was superseded or closed.
+    let cancelled = false;
+
     const timer = setTimeout(async () => {
       try {
         setCompanySearchLoading(true);
@@ -1076,6 +1079,8 @@ export default function HomeScreen() {
           .order('name', { ascending: true })
           .limit(8);
 
+        if (cancelled) return;
+
         if (error) {
           console.error('Company search error:', error);
           return;
@@ -1087,6 +1092,8 @@ export default function HomeScreen() {
           await supabase.functions.invoke('search-companies', {
             body: { query },
           });
+
+        if (cancelled) return;
 
         if (googleError) {
           setHoursGoogleCompanySuggestions([]);
@@ -1100,7 +1107,10 @@ export default function HomeScreen() {
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [newCompany, profile?.city]);
 
   useEffect(() => {
@@ -1115,6 +1125,8 @@ export default function HomeScreen() {
       return;
     }
 
+    let cancelled = false;
+
     const timer = setTimeout(async () => {
       try {
         setRoleBusinessSearchLoading(true);
@@ -1123,6 +1135,8 @@ export default function HomeScreen() {
           'search-companies',
           { body: { query } }
         );
+
+        if (cancelled) return;
 
         if (error) {
           setRoleBusinessSuggestions([]);
@@ -1137,7 +1151,10 @@ export default function HomeScreen() {
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [
     editBusinessName,
     showRoleBusinessSuggestions,
@@ -1152,6 +1169,8 @@ export default function HomeScreen() {
       return;
     }
 
+    let cancelled = false;
+
     const timer = setTimeout(async () => {
       try {
         setEditCompanySearchLoading(true);
@@ -1160,6 +1179,8 @@ export default function HomeScreen() {
           'search-companies',
           { body: { query } }
         );
+
+        if (cancelled) return;
 
         if (error) {
           setEditCompanySuggestions([]);
@@ -1174,7 +1195,10 @@ export default function HomeScreen() {
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [editCompany, showEditCompanySuggestions]);
 
   useEffect(() => {
@@ -1184,6 +1208,8 @@ export default function HomeScreen() {
       setJobCompanySuggestions([]);
       return;
     }
+
+    let cancelled = false;
 
     const timer = setTimeout(async () => {
       try {
@@ -1195,6 +1221,8 @@ export default function HomeScreen() {
             body: { query },
           }
         );
+
+        if (cancelled) return;
 
         if (error) {
           setJobCompanySuggestions([]);
@@ -1209,7 +1237,10 @@ export default function HomeScreen() {
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [jobCompany, showJobCompanySuggestions]);
 
   const totalHours = useMemo(() => {

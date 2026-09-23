@@ -126,6 +126,9 @@ export default function MarketplaceScreen({
 
   const [dealProducts, setDealProducts] = useState<DealProduct[]>([]);
   const [dealLoading, setDealLoading] = useState(false);
+  // The Deal Scanner is only shown in the Deals view, so its queries run
+  // the first time that view is opened instead of on every Marketplace mount.
+  const [dealScannerRequested, setDealScannerRequested] = useState(false);
   const [dealMessage, setDealMessage] = useState('');
   const [dealTrade, setDealTrade] = useState(profileTrade?.trim() || 'Plumber');
   const [dealTradeSearch, setDealTradeSearch] = useState('');
@@ -318,9 +321,15 @@ export default function MarketplaceScreen({
 
   useEffect(() => {
     loadMarketplaceListings();
-    loadDealScanner();
     loadSavedItems();
   }, []);
+
+  useEffect(() => {
+    if (marketplaceView !== 'deals' || dealScannerRequested) return;
+
+    setDealScannerRequested(true);
+    loadDealScanner();
+  }, [marketplaceView, dealScannerRequested]);
 
   async function loadSavedItems() {
     try {
@@ -1459,7 +1468,7 @@ export default function MarketplaceScreen({
             <Text style={styles.marketplaceMessage}>{dealMessage}</Text>
           ) : null}
 
-          {dealLoading ? (
+          {dealLoading || !dealScannerRequested ? (
             <View style={styles.marketplaceLoadingCard}>
               <Text style={styles.marketplaceLoadingText}>
                 Comparing retailer prices…
