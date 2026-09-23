@@ -72,6 +72,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabName>('Feed');
+  const [careerOverviewExpanded, setCareerOverviewExpanded] = useState(false);
 
   const [userRoles, setUserRoles] = useState<UserRoleRow[]>([]);
   const [activeRole, setActiveRole] = useState<TradesHubRole>('tradesperson');
@@ -3531,7 +3532,20 @@ export default function HomeScreen() {
 
         {activeRole === 'tradesperson' ? (
           <View style={styles.careerOverviewCard}>
-            <View style={styles.careerOverviewHeader}>
+            <TouchableOpacity
+              style={styles.careerOverviewHeader}
+              activeOpacity={0.8}
+              onPress={() =>
+                setCareerOverviewExpanded((current) => !current)
+              }
+              accessibilityRole="button"
+              accessibilityState={{ expanded: careerOverviewExpanded }}
+              accessibilityLabel={
+                careerOverviewExpanded
+                  ? 'Collapse career overview'
+                  : 'Expand career overview'
+              }
+            >
               <View style={styles.careerOverviewHeadingWrap}>
                 <Text style={styles.careerOverviewEyebrow}>
                   CAREER OVERVIEW
@@ -3544,14 +3558,26 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <View style={styles.careerOverviewBadge}>
+              <View style={styles.careerOverviewHeaderRight}>
+                <View style={styles.careerOverviewBadge}>
+                  <Ionicons
+                    name="construct-outline"
+                    size={20}
+                    color="#D2B95B"
+                  />
+                </View>
+
                 <Ionicons
-                  name="construct-outline"
+                  name={
+                    careerOverviewExpanded
+                      ? 'chevron-up-outline'
+                      : 'chevron-down-outline'
+                  }
                   size={20}
-                  color="#D2B95B"
+                  color="#A9B3BF"
                 />
               </View>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.careerOverviewStatsRow}>
               <View style={styles.careerOverviewStat}>
@@ -3574,26 +3600,30 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <View style={styles.careerOverviewStatDivider} />
+              {careerOverviewExpanded ? (
+                <>
+                  <View style={styles.careerOverviewStatDivider} />
 
-              <View style={styles.careerOverviewStat}>
-                <Text style={styles.careerOverviewStatLabel}>
-                  TRAINING
-                </Text>
-                <Text
-                  style={[
-                    styles.careerOverviewStatValue,
-                    currentTraining?.status === 'Passed' && {
-                      color: '#62B77A',
-                    },
-                    currentTraining?.status === 'Failed' && {
-                      color: '#E56B6B',
-                    },
-                  ]}
-                >
-                  {currentTraining?.status || 'Not Started'}
-                </Text>
-              </View>
+                  <View style={styles.careerOverviewStat}>
+                    <Text style={styles.careerOverviewStatLabel}>
+                      TRAINING
+                    </Text>
+                    <Text
+                      style={[
+                        styles.careerOverviewStatValue,
+                        currentTraining?.status === 'Passed' && {
+                          color: '#62B77A',
+                        },
+                        currentTraining?.status === 'Failed' && {
+                          color: '#E56B6B',
+                        },
+                      ]}
+                    >
+                      {currentTraining?.status || 'Not Started'}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
             </View>
 
             {currentPeriodProgress ? (
@@ -3637,67 +3667,71 @@ export default function HomeScreen() {
               </View>
             )}
 
-            <View style={styles.careerOverviewTrainingRow}>
-              <View style={styles.careerOverviewTrainingIcon}>
-                <Ionicons
-                  name="school-outline"
-                  size={18}
-                  color="#D2B95B"
-                />
-              </View>
+            {careerOverviewExpanded ? (
+              <>
+                <View style={styles.careerOverviewTrainingRow}>
+                  <View style={styles.careerOverviewTrainingIcon}>
+                    <Ionicons
+                      name="school-outline"
+                      size={18}
+                      color="#D2B95B"
+                    />
+                  </View>
 
-              <View style={styles.careerOverviewTrainingCopy}>
-                <Text style={styles.careerOverviewTrainingTitle}>
-                  Technical Training
-                </Text>
-                <Text style={styles.careerOverviewTrainingText}>
-                  {currentTraining?.school_name ||
-                    (currentTraining?.status
-                      ? `Period ${currentPeriodNumber} — ${currentTraining.status}`
-                      : 'No training provider added for this period yet.')}
-                </Text>
-              </View>
-            </View>
+                  <View style={styles.careerOverviewTrainingCopy}>
+                    <Text style={styles.careerOverviewTrainingTitle}>
+                      Technical Training
+                    </Text>
+                    <Text style={styles.careerOverviewTrainingText}>
+                      {currentTraining?.school_name ||
+                        (currentTraining?.status
+                          ? `Period ${currentPeriodNumber} — ${currentTraining.status}`
+                          : 'No training provider added for this period yet.')}
+                    </Text>
+                  </View>
+                </View>
 
-            <View style={styles.careerOverviewActions}>
-              <TouchableOpacity
-                style={styles.careerOverviewPrimaryButton}
-                onPress={() => {
-                  setHoursMessage('');
-                  setNewPeriod(
-                    currentPeriodNumber ?? periodNumbers[0] ?? null
-                  );
-                  setNewCompany('');
-                  setNewWorkType('');
-                  setShowHoursModal(true);
-                }}
-              >
-                <Ionicons name="add" size={18} color="#0B1623" />
-                <Text style={styles.careerOverviewPrimaryButtonText}>
-                  LOG HOURS
-                </Text>
-              </TouchableOpacity>
+                <View style={styles.careerOverviewActions}>
+                  <TouchableOpacity
+                    style={styles.careerOverviewPrimaryButton}
+                    onPress={() => {
+                      setHoursMessage('');
+                      setNewPeriod(
+                        currentPeriodNumber ?? periodNumbers[0] ?? null
+                      );
+                      setNewCompany('');
+                      setNewWorkType('');
+                      setShowHoursModal(true);
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color="#0B1623" />
+                    <Text style={styles.careerOverviewPrimaryButtonText}>
+                      LOG HOURS
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.careerOverviewSecondaryButton}
-                onPress={() => setActiveTab('Career')}
-              >
-                <Text style={styles.careerOverviewSecondaryButtonText}>
-                  VIEW CAREER
-                </Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={17}
-                  color="#D2B95B"
-                />
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    style={styles.careerOverviewSecondaryButton}
+                    onPress={() => setActiveTab('Career')}
+                  >
+                    <Text style={styles.careerOverviewSecondaryButtonText}>
+                      VIEW CAREER
+                    </Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={17}
+                      color="#D2B95B"
+                    />
+                  </TouchableOpacity>
+                </View>
 
-            {totalRequiredHours ? (
-              <Text style={styles.careerOverviewOverallNote}>
-                Overall: {formatHours(assignedHours)} /{' '}
-                {formatNumber(totalRequiredHours)} assigned apprenticeship hours
-              </Text>
+                {totalRequiredHours ? (
+                  <Text style={styles.careerOverviewOverallNote}>
+                    Overall: {formatHours(assignedHours)} /{' '}
+                    {formatNumber(totalRequiredHours)} assigned apprenticeship hours
+                  </Text>
+                ) : null}
+              </>
             ) : null}
           </View>
         ) : null}
@@ -9369,14 +9403,21 @@ const styles = StyleSheet.create({
 
   careerOverviewHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 12,
+    minHeight: 44,
   },
 
   careerOverviewHeadingWrap: {
     flex: 1,
+  },
+
+  careerOverviewHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
 
   careerOverviewEyebrow: {

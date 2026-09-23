@@ -27,3 +27,16 @@
 - Test-data filtering
 - Deal Scanner UI
 - Local listings
+
+## POST-CORE-MVP (not started, no schema yet)
+- Certifications/credentials with evidence upload, verification workflow,
+  reviewer/admin status, and a clear distinction between verified and
+  self-declared credentials.
+  - Certification type
+  - Issuing authority
+  - Credential identifier where appropriate
+  - Evidence upload
+  - Pending / verified / rejected states
+  - Reviewer/admin workflow
+  - Privacy and storage controls
+  - No tables or verified badges exist for this yet - do not fake them.
