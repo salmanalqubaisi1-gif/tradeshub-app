@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -6516,28 +6518,44 @@ export default function HomeScreen() {
 
       <Modal
         visible={showRoleProfileModal}
-        transparent
-        animationType="fade"
+        animationType="slide"
+        presentationStyle="fullScreen"
         onRequestClose={() => setShowRoleProfileModal(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <ScrollView
-            contentContainerStyle={styles.modalScrollContent}
-            keyboardShouldPersistTaps="handled"
+        <View
+          style={[
+            styles.fullScreenEditor,
+            { paddingTop: insets.top, paddingBottom: insets.bottom },
+          ]}
+        >
+          <View style={styles.fullScreenEditorHeader}>
+            <TouchableOpacity
+              style={styles.fullScreenEditorHeaderAction}
+              onPress={() => setShowRoleProfileModal(false)}
+            >
+              <Text style={styles.fullScreenEditorHeaderActionText}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+
+            <Text
+              style={styles.fullScreenEditorTitle}
+              numberOfLines={1}
+            >
+              Edit {ROLE_CONFIG[activeRole].label}
+            </Text>
+
+            <View style={styles.fullScreenEditorHeaderAction} />
+          </View>
+
+          <KeyboardAvoidingView
+            style={styles.fullScreenEditorBody}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  Edit {ROLE_CONFIG[activeRole].label}
-                </Text>
-
-                <TouchableOpacity
-                  onPress={() => setShowRoleProfileModal(false)}
-                >
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-
+            <ScrollView
+              contentContainerStyle={styles.fullScreenEditorScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
               <Text style={styles.modalLabel}>Name</Text>
               <TextInput
                 style={styles.modalInput}
@@ -6862,8 +6880,8 @@ export default function HomeScreen() {
                   <Text style={styles.saveHoursText}>SAVE CHANGES</Text>
                 )}
               </TouchableOpacity>
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -12439,6 +12457,50 @@ const styles = StyleSheet.create({
   alignItems: 'center',
   justifyContent: 'center',
   padding: 24,
+  },
+
+  fullScreenEditor: {
+    flex: 1,
+    backgroundColor: Brand.navy900,
+  },
+
+  fullScreenEditorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D3042',
+  },
+
+  fullScreenEditorHeaderAction: {
+    minWidth: 60,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+
+  fullScreenEditorHeaderActionText: {
+    color: '#D2B95B',
+    fontSize: 16,
+    fontFamily: FontFamily.bodySemiBold,
+  },
+
+  fullScreenEditorTitle: {
+    flex: 1,
+    color: Brand.white,
+    fontSize: 17,
+    fontFamily: FontFamily.heading,
+    textAlign: 'center',
+  },
+
+  fullScreenEditorBody: {
+    flex: 1,
+  },
+
+  fullScreenEditorScrollContent: {
+    padding: 20,
+    paddingBottom: 40,
   },
 
   modalScrollContent: {
