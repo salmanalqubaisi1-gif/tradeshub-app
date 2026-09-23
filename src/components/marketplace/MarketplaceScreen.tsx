@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Image,
     Linking,
@@ -78,6 +78,15 @@ type SellPhoto = {
   isRemote?: boolean;
 };
 
+// Saved listings persist to marketplace_saved_items (see
+// supabase/migrations/20260922120000_marketplace_saved_items.sql).
+const SAVED_ITEM_SOURCE = 'listing';
+
+// Built-in sample listings have no database row, so they cannot be saved.
+function isPersistableListingId(id: string) {
+  return !id.startsWith('demo-');
+}
+
 type Props = {
   profileTrade?: string | null;
   profileName?: string | null;
@@ -93,6 +102,9 @@ export default function MarketplaceScreen({
   const [marketplaceTrade, setMarketplaceTrade] = useState('All trades');
   const [marketplaceCategory, setMarketplaceCategory] = useState('All categories');
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [savedUserId, setSavedUserId] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState('');
+  const savedPendingRef = useRef<Set<string>>(new Set());
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [userListings, setUserListings] = useState<Listing[]>([]);
@@ -307,7 +319,37 @@ export default function MarketplaceScreen({
   useEffect(() => {
     loadMarketplaceListings();
     loadDealScanner();
+    loadSavedItems();
   }, []);
+
+  async function loadSavedItems() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSavedUserId(null);
+        setSavedIds([]);
+        return;
+      }
+
+      setSavedUserId(user.id);
+
+      const { data, error } = await supabase
+        .from('marketplace_saved_items')
+        .select('item_id')
+        .eq('user_id', user.id)
+        .eq('item_source', SAVED_ITEM_SOURCE);
+
+      if (error) throw error;
+
+      setSavedIds((data || []).map((row: any) => String(row.item_id)));
+    } catch (error: any) {
+      console.error('Marketplace saved items load error:', error);
+      setSavedMessage('Could not load your saved listings.');
+    }
+  }
 
 
   async function loadDealScanner() {
@@ -765,14 +807,76 @@ export default function MarketplaceScreen({
     marketplaceTrade,
     marketplaceCategory,
     savedIds,
+    listings,
   ]);
 
-  function toggleSaved(id: string) {
-    setSavedIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
+  const savedListingCount = useMemo(
+    () => listings.filter((item) => savedIds.includes(item.id)).length,
+    [listings, savedIds]
+  );
+
+  async function toggleSaved(id: string) {
+    if (!isPersistableListingId(id)) {
+      setSavedMessage('Sample listings can’t be saved.');
+      return;
+    }
+
+    if (!savedUserId) {
+      setSavedMessage('Sign in to save listings.');
+      return;
+    }
+
+    // Ignore repeat taps while this item's save/unsave is in flight.
+    if (savedPendingRef.current.has(id)) return;
+    savedPendingRef.current.add(id);
+
+    const wasSaved = savedIds.includes(id);
+    const addId = (current: string[]) =>
+      current.includes(id) ? current : [...current, id];
+    const removeId = (current: string[]) =>
+      current.filter((item) => item !== id);
+
+    setSavedMessage('');
+    setSavedIds(wasSaved ? removeId : addId);
+
+    try {
+      if (wasSaved) {
+        const { error } = await supabase
+          .from('marketplace_saved_items')
+          .delete()
+          .eq('user_id', savedUserId)
+          .eq('item_source', SAVED_ITEM_SOURCE)
+          .eq('item_id', id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('marketplace_saved_items')
+          .upsert(
+            {
+              user_id: savedUserId,
+              item_source: SAVED_ITEM_SOURCE,
+              item_id: id,
+            },
+            {
+              onConflict: 'user_id,item_source,item_id',
+              ignoreDuplicates: true,
+            }
+          );
+
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      console.error('Marketplace saved item update error:', error);
+      setSavedIds(wasSaved ? addId : removeId);
+      setSavedMessage(
+        wasSaved
+          ? 'Could not remove this saved listing. Try again.'
+          : 'Could not save this listing. Try again.'
+      );
+    } finally {
+      savedPendingRef.current.delete(id);
+    }
   }
 
 
@@ -1071,6 +1175,19 @@ export default function MarketplaceScreen({
       if (error) throw error;
 
       setSavedIds((current) => current.filter((item) => item !== id));
+
+      // Best-effort cleanup of the owner's own bookmark for this listing.
+      const { error: savedDeleteError } = await supabase
+        .from('marketplace_saved_items')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('item_source', SAVED_ITEM_SOURCE)
+        .eq('item_id', id);
+
+      if (savedDeleteError) {
+        console.error('Marketplace saved item cleanup error:', savedDeleteError);
+      }
+
       await loadMarketplaceListings();
     } catch (error: any) {
       console.error('Marketplace listing delete error:', error);
@@ -2023,8 +2140,8 @@ export default function MarketplaceScreen({
 
               <Text style={styles.marketplaceSectionMeta}>
                 {marketplaceView === 'saved'
-                  ? `${savedIds.length} saved listing${
-                      savedIds.length === 1 ? '' : 's'
+                  ? `${savedListingCount} saved listing${
+                      savedListingCount === 1 ? '' : 's'
                     }`
                   : `${filteredListings.length} listing${
                       filteredListings.length === 1 ? '' : 's'
@@ -2035,6 +2152,10 @@ export default function MarketplaceScreen({
 
           {marketplaceMessage ? (
             <Text style={styles.marketplaceMessage}>{marketplaceMessage}</Text>
+          ) : null}
+
+          {savedMessage ? (
+            <Text style={styles.marketplaceMessage}>{savedMessage}</Text>
           ) : null}
 
           {marketplaceView === 'your' ? (
@@ -2401,6 +2522,10 @@ export default function MarketplaceScreen({
                 <Text style={styles.listingDetailValue}>{selectedListing?.listerName}</Text>
               </View>
             </View>
+
+            {savedMessage ? (
+              <Text style={styles.marketplaceMessage}>{savedMessage}</Text>
+            ) : null}
 
             <View style={styles.listingModalActions}>
               <TouchableOpacity
