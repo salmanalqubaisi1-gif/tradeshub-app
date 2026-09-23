@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
 import { useTradesHubFonts } from '@/hooks/use-tradeshub-fonts';
@@ -13,25 +14,29 @@ export default function RootLayout() {
 
   if (!loaded) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: Brand.navy900,
-        }}
-      >
-        <ActivityIndicator
-          size="large"
-          color={Brand.gold500}
-        />
-      </View>
+      <SafeAreaProvider>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: Brand.navy900,
+          }}
+        >
+          <ActivityIndicator
+            size="large"
+            color={Brand.gold500}
+          />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-    </Stack>
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+      </Stack>
+    </SafeAreaProvider>
   );
 }

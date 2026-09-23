@@ -14,6 +14,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeownerFindPro from '../components/homeowner/HomeownerFindPro';
 import MarketplaceScreen from '../components/marketplace/MarketplaceScreen';
@@ -66,6 +67,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabName>('Feed');
 
@@ -6113,7 +6115,17 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, isMobile && styles.headerMobile]}>
+      <View
+        style={[
+          styles.header,
+          isMobile && styles.headerMobile,
+          {
+            paddingTop:
+              (isMobile ? styles.headerMobile.paddingTop : styles.header.paddingVertical) +
+              insets.top,
+          },
+        ]}
+      >
         <View style={[styles.headerBrand, isMobile && styles.headerBrandMobile]}>
           <Image
             source={require('../../assets/images/trades-hub-logo.png')}
