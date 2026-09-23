@@ -37,7 +37,7 @@ import {
   getPeriodHours,
   getTotalRequiredHours,
 } from '../constants/trades';
-import { supabase } from '../lib/supabase';
+import { setSessionPersistence, supabase } from '../lib/supabase';
 import type {
   CompanySuggestion,
   GoogleCompanySuggestion,
@@ -325,6 +325,11 @@ export default function HomeScreen() {
       });
     } catch (error) {
       console.error('Profile load error:', error);
+      // getUser() failed (e.g. network error, expired session) before
+      // roleOnboardingComplete could be set, which would otherwise leave the
+      // "Loading Trades Hub..." gate stuck forever. Send the user back to
+      // sign-in instead of hanging with no recovery.
+      router.replace('/');
     } finally {
       setProfileLoading(false);
     }
@@ -3188,6 +3193,7 @@ export default function HomeScreen() {
   }
 
   async function handleSignOut() {
+    setSessionPersistence(true);
     await supabase.auth.signOut();
     router.replace('/');
   }

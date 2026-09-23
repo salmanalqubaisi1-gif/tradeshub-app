@@ -24,7 +24,7 @@ import {
   ALBERTA_TRADES,
   getApprenticeshipLevels,
 } from '../constants/trades';
-import { supabase } from '../lib/supabase';
+import { setSessionPersistence, supabase } from '../lib/supabase';
 
 type TradesHubRole =
   | 'tradesperson'
@@ -317,6 +317,7 @@ export default function SignupScreen() {
 
     try {
       setLoading(true);
+      setSessionPersistence(true);
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),

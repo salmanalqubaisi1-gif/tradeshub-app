@@ -22,7 +22,7 @@ import {
   Spacing,
   Surfaces,
 } from '@/constants/theme';
-import { supabase } from '../lib/supabase';
+import { setSessionPersistence, supabase } from '../lib/supabase';
 
 type TradesHubRole =
   | 'tradesperson'
@@ -66,18 +66,27 @@ export default function LoginScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) {
-        return;
-      }
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!isMounted) {
+          return;
+        }
 
-      if (data.session) {
-        router.replace('/home');
-        return;
-      }
+        if (data.session) {
+          router.replace('/home');
+          return;
+        }
 
-      setCheckingSession(false);
-    });
+        setCheckingSession(false);
+      })
+      .catch((error) => {
+        console.error('Session restore error:', error);
+
+        if (isMounted) {
+          setCheckingSession(false);
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -230,6 +239,7 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+      setSessionPersistence(rememberMe);
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
