@@ -93,6 +93,7 @@ export default function MarketplaceScreen({
   const [marketplaceTrade, setMarketplaceTrade] = useState('All trades');
   const [marketplaceCategory, setMarketplaceCategory] = useState('All categories');
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [userListings, setUserListings] = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
@@ -116,6 +117,7 @@ export default function MarketplaceScreen({
   const [dealMessage, setDealMessage] = useState('');
   const [dealTrade, setDealTrade] = useState(profileTrade?.trim() || 'Plumber');
   const [dealTradeSearch, setDealTradeSearch] = useState('');
+  const [showTradeSheet, setShowTradeSheet] = useState(false);
   const [dealRelevanceFilter, setDealRelevanceFilter] =
     useState<'all' | 'trade_specific' | 'general'>('all');
   const [dealCategoryFilter, setDealCategoryFilter] = useState('all');
@@ -282,6 +284,14 @@ export default function MarketplaceScreen({
     const alias = tradeAliasMap[officialName];
     return alias ? `${alias} — ${officialName}` : officialName;
   }
+
+  const PRIMARY_DEAL_TRADES = [
+    'Plumber',
+    'Electrician',
+    'Refrigeration and Air Conditioning Mechanic',
+    'Carpenter',
+    'Welder',
+  ];
 
   const tradeOptions = useMemo(() => {
     const next = [...officialTradeProfiles];
@@ -573,22 +583,16 @@ export default function MarketplaceScreen({
   }, [sellTradeSearch, tradeOptions]);
 
 
-  const dealTradeChoices = useMemo(() => {
+  const dealTradeSheetOptions = useMemo(() => {
     const query = dealTradeSearch.trim().toLowerCase();
 
     if (!query) {
-      return [
-        'Plumber',
-        'Electrician',
-        'Refrigeration and Air Conditioning Mechanic',
-        'Automotive Service Technician',
-        'Carpenter',
-      ];
+      return tradeOptions;
     }
 
-    return tradeOptions
-      .filter((trade) => getTradeDisplayName(trade).toLowerCase().includes(query))
-      .slice(0, 10);
+    return tradeOptions.filter((trade) =>
+      getTradeDisplayName(trade).toLowerCase().includes(query)
+    );
   }, [dealTradeSearch, tradeOptions]);
 
   const dealCategoryOptions = useMemo(() => {
@@ -1169,16 +1173,10 @@ export default function MarketplaceScreen({
           <View style={styles.dealTradePanel}>
             <Text style={styles.dealTradeLabel}>TRADE</Text>
 
-            <TextInput
-              style={styles.dealTradeSearch}
-              placeholder="Search trades"
-              placeholderTextColor="#667788"
-              value={dealTradeSearch}
-              onChangeText={setDealTradeSearch}
-            />
-
             <View style={styles.marketplaceTradeChips}>
-              {dealTradeChoices.map((trade) => {
+              {PRIMARY_DEAL_TRADES.concat(
+                PRIMARY_DEAL_TRADES.includes(dealTrade) ? [] : [dealTrade]
+              ).map((trade) => {
                 const selected = dealTrade === trade;
 
                 return (
@@ -1190,7 +1188,6 @@ export default function MarketplaceScreen({
                     ]}
                     onPress={() => {
                       setDealTrade(trade);
-                      setDealTradeSearch('');
                       setDealRelevanceFilter('all');
                       setDealCategoryFilter('all');
                     }}
@@ -1206,6 +1203,20 @@ export default function MarketplaceScreen({
                   </TouchableOpacity>
                 );
               })}
+
+              <TouchableOpacity
+                style={styles.marketplaceTradeChipMore}
+                onPress={() => setShowTradeSheet(true)}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={14}
+                  color={marketplaceColor}
+                />
+                <Text style={styles.marketplaceTradeChipMoreText}>
+                  See all trades
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.dealTradeCurrent}>
@@ -1352,7 +1363,10 @@ export default function MarketplaceScreen({
 
                 return (
                   <View key={product.id} style={styles.dealProductCard}>
-                    {product.mediaUrls?.[0] || product.imageUrl || product.imageUrls?.[0] ? (
+                    {(product.mediaUrls?.[0] ||
+                      product.imageUrl ||
+                      product.imageUrls?.[0]) &&
+                    !failedImageIds.has(product.id) ? (
                       <Image
                         source={{
                           uri:
@@ -1362,6 +1376,13 @@ export default function MarketplaceScreen({
                         }}
                         style={styles.dealProductImage}
                         resizeMode="contain"
+                        onError={() =>
+                          setFailedImageIds((current) => {
+                            const next = new Set(current);
+                            next.add(product.id);
+                            return next;
+                          })
+                        }
                       />
                     ) : (
                       <View style={styles.dealProductImagePlaceholder}>
@@ -1380,7 +1401,9 @@ export default function MarketplaceScreen({
                       <Text style={styles.dealProductBrand}>
                         {product.brand.toUpperCase()}
                       </Text>
-                      <Text style={styles.dealProductName}>{product.name}</Text>
+                      <Text style={styles.dealProductName} numberOfLines={2}>
+                        {product.name}
+                      </Text>
 
                       {product.modelNumber ? (
                         <Text style={styles.dealProductModel}>
@@ -2003,7 +2026,9 @@ export default function MarketplaceScreen({
                   ? `${savedIds.length} saved listing${
                       savedIds.length === 1 ? '' : 's'
                     }`
-                  : 'Marketplace V0'}
+                  : `${filteredListings.length} listing${
+                      filteredListings.length === 1 ? '' : 's'
+                    }`}
               </Text>
             </View>
           </View>
@@ -2075,11 +2100,18 @@ export default function MarketplaceScreen({
                       pressed && styles.marketplaceListingCardPressed,
                     ]}
                   >
-                    {item.imageUrls?.[0] ? (
+                    {item.imageUrls?.[0] && !failedImageIds.has(item.id) ? (
                       <Image
                         source={{ uri: item.imageUrls[0] }}
                         style={styles.marketplaceListingImage}
                         resizeMode="cover"
+                        onError={() =>
+                          setFailedImageIds((current) => {
+                            const next = new Set(current);
+                            next.add(item.id);
+                            return next;
+                          })
+                        }
                       />
                     ) : (
                       <View style={styles.marketplaceListingImagePlaceholder}>
@@ -2099,6 +2131,7 @@ export default function MarketplaceScreen({
                           styles.marketplaceSaveButton,
                           saved && styles.marketplaceSaveButtonActive,
                         ]}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         onPress={(event: any) => {
                           event?.stopPropagation?.();
                           toggleSaved(item.id);
@@ -2126,12 +2159,22 @@ export default function MarketplaceScreen({
                       ) : null}
                     </View>
 
-                    <Text style={styles.marketplaceListingTitle}>
+                    <Text
+                      style={styles.marketplaceListingTitle}
+                      numberOfLines={2}
+                    >
                       {item.title}
                     </Text>
 
                     <Text style={styles.marketplaceListingTrade}>
                       {getTradeDisplayName(item.trade)}
+                    </Text>
+
+                    <Text
+                      style={styles.marketplaceListingLocationMeta}
+                      numberOfLines={1}
+                    >
+                      {item.meta}
                     </Text>
 
                     <View style={styles.marketplaceListingBottom}>
@@ -2426,6 +2469,101 @@ export default function MarketplaceScreen({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={showTradeSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setDealTradeSearch('');
+          setShowTradeSheet(false);
+        }}
+      >
+        <Pressable
+          style={styles.listingModalBackdrop}
+          onPress={() => {
+            setDealTradeSearch('');
+            setShowTradeSheet(false);
+          }}
+        >
+          <Pressable
+            style={styles.tradeSheetCard}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.tradeSheetHeader}>
+              <Text style={styles.tradeSheetTitle}>All trades</Text>
+
+              <TouchableOpacity
+                style={styles.tradeSheetClose}
+                onPress={() => {
+                  setDealTradeSearch('');
+                  setShowTradeSheet(false);
+                }}
+              >
+                <Ionicons name="close" size={22} color={Brand.white} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.dealTradeSearch}
+              placeholder="Search trades"
+              placeholderTextColor="#667788"
+              value={dealTradeSearch}
+              onChangeText={setDealTradeSearch}
+              autoFocus
+            />
+
+            <ScrollView
+              style={styles.tradeSheetList}
+              keyboardShouldPersistTaps="handled"
+            >
+              {dealTradeSheetOptions.map((trade) => {
+                const selected = dealTrade === trade;
+
+                return (
+                  <TouchableOpacity
+                    key={trade}
+                    style={[
+                      styles.tradeSheetOption,
+                      selected && styles.tradeSheetOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setDealTrade(trade);
+                      setDealTradeSearch('');
+                      setDealRelevanceFilter('all');
+                      setDealCategoryFilter('all');
+                      setShowTradeSheet(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.tradeSheetOptionText,
+                        selected && styles.tradeSheetOptionTextSelected,
+                      ]}
+                    >
+                      {tradeAliasMap[trade] || trade}
+                    </Text>
+
+                    {selected ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={marketplaceColor}
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {dealTradeSheetOptions.length === 0 ? (
+                <Text style={styles.tradeSheetEmptyText}>
+                  No trades match "{dealTradeSearch}".
+                </Text>
+              ) : null}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -2601,6 +2739,91 @@ const styles = StyleSheet.create({
     color: '#D2B95B',
   },
 
+  marketplaceTradeChipMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#304457',
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  marketplaceTradeChipMoreText: {
+    color: '#A9B8C4',
+    fontSize: 10,
+    fontFamily: FontFamily.bodyBold,
+  },
+
+  tradeSheetCard: {
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '80%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#304457',
+    backgroundColor: '#0F1C2A',
+    padding: 18,
+  },
+
+  tradeSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  tradeSheetTitle: {
+    color: Brand.white,
+    fontSize: 17,
+    fontFamily: FontFamily.heading,
+  },
+
+  tradeSheetClose: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  tradeSheetList: {
+    marginTop: 12,
+  },
+
+  tradeSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 46,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+  },
+
+  tradeSheetOptionSelected: {
+    backgroundColor: 'rgba(210, 185, 91, 0.12)',
+  },
+
+  tradeSheetOptionText: {
+    color: '#C7D0D9',
+    fontSize: 14,
+    fontFamily: FontFamily.bodyMedium,
+  },
+
+  tradeSheetOptionTextSelected: {
+    color: '#D2B95B',
+    fontFamily: FontFamily.bodySemiBold,
+  },
+
+  tradeSheetEmptyText: {
+    color: '#7F8C99',
+    fontSize: 13,
+    fontFamily: FontFamily.body,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+
   marketplaceSectionHeader: {
     marginBottom: 10,
   },
@@ -2653,6 +2876,13 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  marketplaceListingLocationMeta: {
+    color: '#7F8C99',
+    fontSize: 10,
+    fontFamily: FontFamily.body,
+    marginTop: 3,
+  },
+
   marketplaceContactButton: {
     minHeight: 40,
     borderRadius: 8,
@@ -2673,7 +2903,7 @@ const styles = StyleSheet.create({
 
   marketplaceListingImage: {
     width: '100%',
-    height: 260,
+    aspectRatio: 1.3,
     borderRadius: 11,
     borderWidth: 1,
     borderColor: '#304457',
@@ -2683,7 +2913,7 @@ const styles = StyleSheet.create({
 
   marketplaceListingImagePlaceholder: {
     width: '100%',
-    height: 260,
+    aspectRatio: 1.3,
     borderRadius: 11,
     borderWidth: 1,
     borderColor: '#304457',
@@ -3574,19 +3804,19 @@ const styles = StyleSheet.create({
     borderColor: '#26394C',
     backgroundColor: '#101F30',
     overflow: 'hidden',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'stretch',
   },
 
   dealProductImage: {
-    width: 250,
-    minHeight: 300,
+    width: '100%',
+    aspectRatio: 1.6,
     backgroundColor: '#F4F5F6',
   },
 
   dealProductImagePlaceholder: {
-    width: 250,
-    minHeight: 300,
+    width: '100%',
+    aspectRatio: 1.6,
     backgroundColor: '#132234',
     alignItems: 'center',
     justifyContent: 'center',
