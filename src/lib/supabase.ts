@@ -38,6 +38,10 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
+      // PKCE (not the default 'implicit' flow) so Google OAuth never puts an
+      // access token in a redirect URL - the app exchanges a short-lived
+      // code for the session itself via exchangeCodeForSession.
+      flowType: 'pkce',
     },
   }
 );

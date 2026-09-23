@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +25,15 @@ import {
   Surfaces,
 } from '@/constants/theme';
 import { setSessionPersistence, supabase } from '../lib/supabase';
+
+// Completes the browser auth session on web; a documented no-op on native.
+WebBrowser.maybeCompleteAuthSession();
+
+// Public, non-secret flag - only shows the button once Google OAuth is
+// actually configured in the Supabase dashboard and Google Cloud Console.
+// Set EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true in .env once that's done.
+const GOOGLE_AUTH_ENABLED =
+  process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
 
 type TradesHubRole =
   | 'tradesperson'
@@ -56,6 +67,7 @@ export default function LoginScreen() {
 
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -275,6 +287,84 @@ export default function LoginScreen() {
       setMessage('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setMessage('');
+
+    try {
+      setGoogleLoading(true);
+      // Google sign-in has no "Remember me" checkbox of its own - behave
+      // like a normal checked sign-in and persist the session.
+      setSessionPersistence(true);
+
+      const redirectTo = Linking.createURL('auth/callback');
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      if (!data?.url) {
+        setMessage('Google sign-in is not available right now.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo
+      );
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        // User backed out of the Google flow - not an error.
+        return;
+      }
+
+      if (result.type !== 'success' || !result.url) {
+        setMessage('Could not complete Google sign-in. Please try again.');
+        return;
+      }
+
+      const callbackUrl = new URL(result.url);
+      const oauthError =
+        callbackUrl.searchParams.get('error_description') ||
+        callbackUrl.searchParams.get('error');
+
+      if (oauthError) {
+        setMessage(oauthError);
+        return;
+      }
+
+      const code = callbackUrl.searchParams.get('code');
+
+      if (!code) {
+        setMessage('Google sign-in did not return a valid code.');
+        return;
+      }
+
+      const { error: exchangeError } =
+        await supabase.auth.exchangeCodeForSession(code);
+
+      if (exchangeError) {
+        setMessage(exchangeError.message);
+        return;
+      }
+
+      router.replace('/home');
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      setMessage('Could not sign in with Google. Please try again.');
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -538,6 +628,41 @@ export default function LoginScreen() {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {GOOGLE_AUTH_ENABLED ? (
+                  <>
+                    <View style={styles.orDividerRow}>
+                      <View style={styles.separatorLine} />
+                      <Text style={styles.separatorText}>OR</Text>
+                      <View style={styles.separatorLine} />
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.googleButton,
+                        googleLoading && styles.disabledButton,
+                      ]}
+                      onPress={handleGoogleSignIn}
+                      disabled={googleLoading}
+                      activeOpacity={0.88}
+                    >
+                      {googleLoading ? (
+                        <ActivityIndicator color={Brand.white} />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="logo-google"
+                            size={18}
+                            color={Brand.white}
+                          />
+                          <Text style={styles.googleButtonText}>
+                            Continue with Google
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                ) : null}
 
                 <View style={styles.separatorRow}>
                   <View style={styles.separatorLine} />
@@ -920,6 +1045,33 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bodyBold,
     fontSize: 9,
     letterSpacing: 0.9,
+  },
+
+  orDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+  },
+
+  googleButton: {
+    minHeight: 54,
+    marginTop: 14,
+    backgroundColor: '#111F2E',
+    borderWidth: 1,
+    borderColor: Brand.borderStrong,
+    borderRadius: Radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+  },
+
+  googleButtonText: {
+    color: Brand.white,
+    fontFamily: FontFamily.bodySemiBold,
+    fontSize: 13,
   },
 
   createAccountButton: {
