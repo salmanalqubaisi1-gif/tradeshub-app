@@ -20,13 +20,20 @@ export function setSessionPersistence(enabled: boolean) {
   sessionPersistenceEnabled = enabled;
 }
 
+// Expo Router's static web output renders routes in Node, where there is no
+// `window` (AsyncStorage's web backend is window.localStorage). Treat that
+// pass as signed-out; the browser loads the real session after hydration.
+const isServer = typeof window === 'undefined';
+
 const rememberMeAwareStorage = {
-  getItem: (key: string) => AsyncStorage.getItem(key),
-  removeItem: (key: string) => AsyncStorage.removeItem(key),
+  getItem: (key: string) =>
+    isServer ? Promise.resolve(null) : AsyncStorage.getItem(key),
+  removeItem: (key: string) =>
+    isServer ? Promise.resolve() : AsyncStorage.removeItem(key),
   setItem: (key: string, value: string) =>
-    sessionPersistenceEnabled
-      ? AsyncStorage.setItem(key, value)
-      : Promise.resolve(),
+    isServer || !sessionPersistenceEnabled
+      ? Promise.resolve()
+      : AsyncStorage.setItem(key, value),
 };
 
 export const supabase = createClient(
