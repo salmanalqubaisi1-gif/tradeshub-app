@@ -251,6 +251,8 @@ export default function HomeScreen() {
   const [editMessage, setEditMessage] = useState('');
 
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
+  // Signed-in user's id, used to show contractors only their own job posts.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [showJobModal, setShowJobModal] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
@@ -3042,6 +3044,11 @@ export default function HomeScreen() {
     try {
       setJobsLoading(true);
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setCurrentUserId(session?.user.id ?? null);
+
       const { data, error } = await supabase
         .from('job_posts')
         .select(
@@ -3477,7 +3484,10 @@ export default function HomeScreen() {
       .slice(0, 3);
 
     const contractorJobs = jobPosts.filter(
-      (job) => job.source_type === 'contractor'
+      (job) =>
+        job.source_type === 'contractor' &&
+        currentUserId !== null &&
+        job.created_by === currentUserId
     );
     const contractorActiveJobs = contractorJobs.filter(
       (job) => job.status === 'active'
@@ -3688,7 +3698,10 @@ export default function HomeScreen() {
 
     if (activeRole === 'contractor') {
       const contractorJobs = jobPosts.filter(
-        (job) => job.source_type === 'contractor'
+        (job) =>
+          job.source_type === 'contractor' &&
+          currentUserId !== null &&
+          job.created_by === currentUserId
       );
 
       return (
@@ -3765,7 +3778,7 @@ export default function HomeScreen() {
                 No job posts yet
               </Text>
               <Text style={styles.cardText}>
-                Create your first trade-specific opening and start building your candidate pipeline.
+                Create your first trade-specific opening. Applicant tracking is coming soon.
               </Text>
             </View>
           ) : (
@@ -4157,7 +4170,7 @@ export default function HomeScreen() {
               <ProfileRow
                 icon="location-outline"
                 label="City"
-                value={roleProfiles.contractor?.city || profile?.city || ''}
+                value={roleProfiles.contractor?.city || profile?.city || 'Not set'}
               />
 
               <ProfileRow
@@ -4781,7 +4794,16 @@ export default function HomeScreen() {
       >
         <View style={styles.modalBackdrop}>
           <ScrollView
-            contentContainerStyle={styles.modalScrollContent}
+            contentContainerStyle={[
+              styles.modalScrollContent,
+              // Keep the header/close button clear of the notch when the
+              // form is taller than the screen.
+              {
+                paddingTop: styles.modalScrollContent.padding + insets.top,
+                paddingBottom:
+                  styles.modalScrollContent.padding + insets.bottom,
+              },
+            ]}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.modalCard}>

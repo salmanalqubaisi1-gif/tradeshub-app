@@ -54,7 +54,7 @@ export function ContractorWorkspace({
             {contractorJobs.length}
           </Text>
           <Text style={styles.contractorStatHint}>
-            All contractor-created jobs
+            All of your job posts
           </Text>
         </View>
       </View>
@@ -183,7 +183,7 @@ export function ContractorWorkspace({
               No job posts yet
             </Text>
             <Text style={styles.contractorEmptyText}>
-              Create your first opening and start building your hiring pipeline.
+              Create your first opening to start hiring. Applicant tracking is coming soon.
             </Text>
           </View>
         )}

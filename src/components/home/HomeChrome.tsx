@@ -128,6 +128,10 @@ export function RoleSwitcherPanel({
   requestRemoveUserRole: (role: TradesHubRole) => void;
   addUserRole: (role: TradesHubRole) => void;
 }) {
+  // The header grows by the top safe-area inset, so the panel's fixed
+  // offset must too or it covers the switcher button on notched iPhones.
+  const insets = useSafeAreaInsets();
+
   return (
     <>
       <TouchableOpacity
@@ -140,6 +144,12 @@ export function RoleSwitcherPanel({
         style={[
           styles.roleSwitcherPanel,
           isMobile && styles.roleSwitcherPanelMobile,
+          insets.top > 0 && {
+            top:
+              (isMobile
+                ? styles.roleSwitcherPanelMobile.top
+                : styles.roleSwitcherPanel.top) + insets.top,
+          },
         ]}
       >
       <Text style={styles.roleSwitcherTitle}>
@@ -311,8 +321,19 @@ export function HomeBottomNav({
   activeTab: HomeTab;
   setActiveTab: (tab: HomeTab) => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.bottomNav}>
+    <View
+      style={[
+        styles.bottomNav,
+        // Keep tab labels clear of the iPhone home indicator.
+        insets.bottom > 0 && {
+          height: styles.bottomNav.height + insets.bottom,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       {[
         ...ROLE_TABS[activeRole],
         {
