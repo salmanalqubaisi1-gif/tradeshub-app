@@ -15,7 +15,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Brand,
@@ -59,6 +61,11 @@ function looksLikeEmail(value: string) {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Phone-sized layouts keep the sign-in form above the fold by showing only
+  // the logo instead of the full marketing column.
+  const isCompact = width < 768;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -392,71 +399,92 @@ export default function LoginScreen() {
         <View style={styles.rightShade} />
 
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isCompact && {
+              paddingTop: Spacing.five + insets.top,
+              paddingBottom: Spacing.five + insets.bottom,
+            },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.shell}>
-            <View style={styles.brandSide}>
+          <View style={[styles.shell, isCompact && styles.shellCompact]}>
+            <View
+              style={[styles.brandSide, isCompact && styles.brandSideCompact]}
+            >
               <Image
                 source={require('../../assets/images/trades-hub-logo.png')}
-                style={styles.logoImage}
+                style={[styles.logoImage, isCompact && styles.logoImageCompact]}
                 resizeMode="contain"
               />
 
-              <View style={styles.goldRule} />
+              {isCompact ? null : (
+                <>
+                  <View style={styles.goldRule} />
 
-              <Text style={styles.heroEyebrow}>
-                THE SKILLED TRADES. ONE PLATFORM.
-              </Text>
+                  <Text style={styles.heroEyebrow}>
+                    THE SKILLED TRADES. ONE PLATFORM.
+                  </Text>
 
-              <Text style={styles.heroTitle}>
-                Built for the trades.
-              </Text>
+                  <Text style={styles.heroTitle}>
+                    Built for the trades.
+                  </Text>
 
-              <Text style={styles.heroSubtitle}>
-                Track your career. Find work. Hire skilled people.
-                Discover tools and opportunities.
-              </Text>
+                  <Text style={styles.heroSubtitle}>
+                    Track your career. Find work. Hire skilled people.
+                    Discover tools and opportunities.
+                  </Text>
 
-              <View style={styles.featurePills}>
-                <View style={styles.featurePill}>
-                  <Ionicons
-                    name="construct-outline"
-                    size={15}
-                    color={Brand.gold500}
-                  />
-                  <Text style={styles.featurePillText}>CAREER</Text>
-                </View>
+                  <View style={styles.featurePills}>
+                    <View style={styles.featurePill}>
+                      <Ionicons
+                        name="construct-outline"
+                        size={15}
+                        color={Brand.gold500}
+                      />
+                      <Text style={styles.featurePillText}>CAREER</Text>
+                    </View>
 
-                <View style={styles.featurePill}>
-                  <Ionicons
-                    name="briefcase-outline"
-                    size={15}
-                    color={Brand.gold500}
-                  />
-                  <Text style={styles.featurePillText}>JOBS</Text>
-                </View>
+                    <View style={styles.featurePill}>
+                      <Ionicons
+                        name="briefcase-outline"
+                        size={15}
+                        color={Brand.gold500}
+                      />
+                      <Text style={styles.featurePillText}>JOBS</Text>
+                    </View>
 
-                <View style={styles.featurePill}>
-                  <Ionicons
-                    name="storefront-outline"
-                    size={15}
-                    color={Brand.gold500}
-                  />
-                  <Text style={styles.featurePillText}>MARKETPLACE</Text>
-                </View>
-              </View>
+                    <View style={styles.featurePill}>
+                      <Ionicons
+                        name="storefront-outline"
+                        size={15}
+                        color={Brand.gold500}
+                      />
+                      <Text style={styles.featurePillText}>MARKETPLACE</Text>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
 
             <View style={styles.formPanel}>
               <View style={styles.formCard}>
-                <View style={styles.formHeader}>
-                  <Text style={styles.formEyebrow}>WELCOME BACK</Text>
+                <View
+                  style={[
+                    styles.formHeader,
+                    isCompact && styles.formHeaderCompact,
+                  ]}
+                >
+                  {isCompact ? null : (
+                    <Text style={styles.formEyebrow}>WELCOME BACK</Text>
+                  )}
                   <Text style={styles.formTitle}>Sign in</Text>
-                  <Text style={styles.formSubtitle}>
-                    Access your Trades Hub workspace.
-                  </Text>
+                  {isCompact ? null : (
+                    <Text style={styles.formSubtitle}>
+                      Access your Trades Hub workspace.
+                    </Text>
+                  )}
                 </View>
 
                 <Text style={styles.inputLabel}>Email</Text>
@@ -682,16 +710,18 @@ export default function LoginScreen() {
                   </Text>
                 </TouchableOpacity>
 
-                <View style={styles.securityRow}>
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={14}
-                    color={Brand.textMuted}
-                  />
-                  <Text style={styles.securityNote}>
-                    One account can hold multiple Trades Hub roles.
-                  </Text>
-                </View>
+                {isCompact ? null : (
+                  <View style={styles.securityRow}>
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={14}
+                      color={Brand.textMuted}
+                    />
+                    <Text style={styles.securityNote}>
+                      One account can hold multiple Trades Hub roles.
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -776,6 +806,20 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 660,
     alignItems: Platform.OS === 'web' ? 'flex-start' : 'center',
+  },
+  shellCompact: {
+    flexDirection: 'column',
+    minHeight: undefined,
+    gap: 18,
+  },
+  brandSideCompact: {
+    flex: 0,
+    alignItems: 'center',
+  },
+  logoImageCompact: {
+    width: 200,
+    height: 56,
+    marginBottom: 0,
   },
 
   logoImage: {
@@ -872,6 +916,10 @@ const styles = StyleSheet.create({
 
   formHeader: {
     marginBottom: 24,
+  },
+
+  formHeaderCompact: {
+    marginBottom: 18,
   },
 
   formEyebrow: {
