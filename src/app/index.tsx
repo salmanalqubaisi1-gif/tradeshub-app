@@ -57,10 +57,32 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const normalizedEmail = email.trim().toLowerCase();
 
   const formComplete = looksLikeEmail(normalizedEmail) && password.length > 0;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) {
+        return;
+      }
+
+      if (data.session) {
+        router.replace('/home');
+        return;
+      }
+
+      setCheckingSession(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -244,6 +266,14 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <View style={styles.sessionCheckContainer}>
+        <ActivityIndicator size="large" color={Brand.gold500} />
+      </View>
+    );
   }
 
   return (
@@ -539,6 +569,13 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
+    backgroundColor: Brand.navy950,
+  },
+
+  sessionCheckContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Brand.navy950,
   },
 
